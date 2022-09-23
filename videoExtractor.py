@@ -2,7 +2,7 @@ import cv2
 import os
 from tkinter import filedialog
 
-vid_path = filedialog.askopenfilename(initialdir='C:/Users/duanr/Desktop/Camera Calibration/')
+vid_path = filedialog.askopenfilename(initialdir='C:/Users/duanr/Desktop/Camera Calibration/Raw Images/')
 
 if vid_path == '':
     print('No file selected!')

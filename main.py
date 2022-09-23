@@ -11,7 +11,7 @@ GRID_SIZE = 1 # in [mm], 1 for unknown/dimensionless
 # -----------------------------------
 CSV_PATH = 'C:/Users/duanr/Desktop/Camera Calibration/calibration.csv'
 
-img_path = filedialog.askdirectory(initialdir='C:/Users/duanr/Desktop/Camera Calibration/')
+img_path = filedialog.askdirectory(initialdir='C:/Users/duanr/Desktop/Camera Calibration/Raw Images/')
 if img_path == '':
     print('No folder selected!')
     quit()
@@ -30,6 +30,7 @@ images = glob.glob(img_path + '/*.jpg')
 
 for fname in images:
     img = cv.imread(fname)
+    print(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     # Find the chess board corners
     ret, corners = cv.findChessboardCorners(gray, (COLUMNS, ROWS), None)
