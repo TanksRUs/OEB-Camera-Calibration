@@ -2,14 +2,19 @@ import numpy as np
 import cv2 as cv
 import glob
 from tkinter import filedialog
+import csv
 
 # ------CHECKERBOARD PROPERTIES------
 ROWS = 6
 COLUMNS = 9
 GRID_SIZE = 1 # in [mm], 1 for unknown/dimensionless
 # -----------------------------------
+CSV_PATH = 'C:/Users/duanr/Desktop/Camera Calibration/calibration.csv'
 
 img_path = filedialog.askdirectory(initialdir='C:/Users/duanr/Desktop/Camera Calibration/')
+if img_path == '':
+    print('No folder selected!')
+    quit()
 
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001) # (COUNT, MAX_ITER, EPS)
 
@@ -40,6 +45,16 @@ for fname in images:
 # cv.destroyAllWindows()
 
 ret, mtx, dist, rvecs, tvecs = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+
+with open(CSV_PATH, 'a', newline='') as f:
+    writer = csv.writer(f)
+    f.write(img_path.rsplit('/',1)[1] + '\n') # name of dataset/calibration parameters
+    f.write('Camera Matrix:\n')
+    writer.writerows(mtx)
+    f.write('Distortion Coefficients:\nk1,k2,p1,p2,k3\n')
+    writer.writerow(dist[0])
+    f.write('\n')
+
 
 print(mtx)
 print(dist)
