@@ -30,33 +30,34 @@ images = glob.glob(img_path + '/*.jpg')
 
 for fname in images:
     img = cv.imread(fname)
-    print(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     # Find the chess board corners
     ret, corners = cv.findChessboardCorners(gray, (COLUMNS, ROWS), None)
     # If found, add object points, image points (after refining them)
+    print('{}, {}'.format(ret, fname))
     if ret == True:
         objpoints.append(objp)
-        corners2 = cv.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
         imgpoints.append(corners)
         # Draw and display the corners
-        cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners2, ret)
-        cv.imshow('img', img)
-        cv.waitKey(0)
-cv.destroyAllWindows()
+        # corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        # cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners2, ret)
+        # cv.imshow('img', img)
+        # cv.waitKey(0)
+# cv.destroyAllWindows()
 
 ret, mtx, dist, rvecs, tvecs  = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
 with open(CSV_PATH, 'a', newline='') as f:
     writer = csv.writer(f)
     f.write(img_path.rsplit('/',1)[1] + '\n') # name of dataset/calibration parameters
+    f.write('RMS Re-projection Error:\n{}\n'.format(ret))
     f.write('Camera Matrix:\n')
     writer.writerows(mtx)
     f.write('Distortion Coefficients:\nk1,k2,p1,p2,k3\n')
     writer.writerow(dist[0])
     f.write('\n')
 
-
+print(ret)
 print(mtx)
 print(dist)
 # print(imgpoints)
