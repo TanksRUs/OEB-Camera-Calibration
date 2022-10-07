@@ -7,7 +7,7 @@ import os
 
 # -----READ CSV-----
 NUM_CAMS = 4
-csv_path = 'C:/Users/duanr/Desktop/Stitching/combined.csv' # using combined as it seems to give better results
+csv_path = 'C:/Users/duanr/Desktop/Stitching/calibration.csv'
 # csv_path = filedialog.askopenfilename(initialdir='C:/Users/duanr/Desktop/Stitching/')
 mtxs = []
 dists = []
@@ -70,3 +70,5 @@ for img_path in images: # assuming images are in the same order as the camera or
     # cv.waitKey(0)
     count += 1
 
+# parameters for stitching_detailed:
+# --warp affine --matcher affine --estimator affine --ba affine --wave_correct no
