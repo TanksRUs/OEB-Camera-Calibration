@@ -14,6 +14,8 @@ from collections import OrderedDict
 import cv2 as cv
 import numpy as np
 
+import yaml
+
 EXPOS_COMP_CHOICES = OrderedDict()
 EXPOS_COMP_CHOICES['gain_blocks'] = cv.detail.ExposureCompensator_GAIN_BLOCKS
 EXPOS_COMP_CHOICES['gain'] = cv.detail.ExposureCompensator_GAIN
@@ -509,6 +511,27 @@ def main():
         zoom_x = 600.0 / result.shape[1]
         dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
         dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
+
+        with open('cameraConfigs.cfg', 'w') as f:
+            for i in range(0, len(cameras)):
+                f.write('{}\n'.format(cameras[i].aspect))
+                f.write('{}\n'.format(cameras[i].focal))
+                f.write('{}\n'.format(cameras[i].ppx))
+                f.write('{}\n'.format(cameras[i].ppy))
+                for row in range(0, 3):
+                    for col in range(0, 3):
+                        f.write('{}\n'.format(cameras[i].R[row][col]))
+                for row in range(0, 3):
+                    f.write('{}\n'.format(cameras[i].t[row][0]))
+                f.write('{}\n'.format(corners[i][0]))
+                f.write('{}\n'.format(corners[i][1]))
+
+        mask_file = cv.FileStorage('masks.yml', cv.FILE_STORAGE_WRITE)
+        for i in range(0, len(cameras)):
+            temp_matrix = cv.UMat.get(masks_warped[i])
+            mask_file.write(name='mask{}'.format(i), val=temp_matrix)
+        mask_file.release()
+
         cv.imshow(result_name, dst)
         cv.waitKey()
 
