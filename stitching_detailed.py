@@ -230,6 +230,11 @@ parser.add_argument(
     help="uses range_width to limit number of images to match with.",
     type=int, dest='rangewidth'
 )
+parser.add_argument(
+    '--output_folder', action='store', default='',
+    help="Output folder for stitched image and camera parameters.",
+    type=str, dest='output_folder'
+)
 
 __doc__ += '\n' + parser.format_help()
 
@@ -507,12 +512,13 @@ def main():
         result = None
         result_mask = None
         result, result_mask = blender.blend(result, result_mask)
-        cv.imwrite(result_name, result)
+        output_folder = args.output_folder
+        cv.imwrite(output_folder + result_name, result)
         zoom_x = 600.0 / result.shape[1]
         dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
         dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
 
-        with open('cameraConfigs.cfg', 'w') as f:
+        with open('{}cameraConfigs.cfg'.format(output_folder), 'w') as f:
             for i in range(0, len(cameras)):
                 f.write('{}\n'.format(cameras[i].aspect))
                 f.write('{}\n'.format(cameras[i].focal))
@@ -526,7 +532,7 @@ def main():
                 f.write('{}\n'.format(corners[i][0]))
                 f.write('{}\n'.format(corners[i][1]))
 
-        mask_file = cv.FileStorage('masks.yml', cv.FILE_STORAGE_WRITE)
+        mask_file = cv.FileStorage('{}masks.yml'.format(output_folder), cv.FILE_STORAGE_WRITE)
         for i in range(0, len(cameras)):
             temp_matrix = cv.UMat.get(masks_warped[i])
             mask_file.write(name='mask{}'.format(i), val=temp_matrix)

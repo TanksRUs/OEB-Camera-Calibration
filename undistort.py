@@ -7,8 +7,8 @@ import os
 
 # -----READ CSV-----
 NUM_CAMS = 4
-csv_path = 'C:/Users/duanr/Desktop/Stitching/calibration.csv'
-# csv_path = filedialog.askopenfilename(initialdir='C:/Users/duanr/Desktop/Stitching/')
+# csv_path = 'C:/Users/duanr/Desktop/Stitching/calibration.csv'
+csv_path = filedialog.askopenfilename(title='Select Camera Calibration CSV', initialdir='C:/Users/duanr/Desktop/Stitching/')
 mtxs = []
 dists = []
 
@@ -34,7 +34,7 @@ with open(csv_path, newline='') as csv_file:
             pass
 # --------------------------------
 
-folder_path = filedialog.askdirectory(initialdir='C:/Users/duanr/Desktop/Stitching/')
+folder_path = filedialog.askdirectory(title='Select Distorted Images Folder', initialdir='C:/Users/duanr/Desktop/Stitching/')
 if folder_path == '':
     print('No folder selected!')
     quit()
@@ -45,6 +45,7 @@ if not os.path.exists(output_folder):
 
 images = glob.glob(folder_path + '/*.png')  # TODO: make sure this matches the image file type
 count = 0
+command = 'stitching_detailed.py'
 
 for img_path in images: # assuming images are in the same order as the camera order
     print(img_path)
@@ -66,9 +67,12 @@ for img_path in images: # assuming images are in the same order as the camera or
     except FileExistsError:
         print('File already exists: ' + img_name)
 
+    command += ' ' + new_path
     # cv.imshow('img', dst)
     # cv.waitKey(0)
     count += 1
 
+command += ' --warp affine --matcher affine --estimator affine --ba affine --wave_correct no --output_folder {}/'.format(os.path.dirname(folder_path))
+os.system(command)
 # parameters for stitching_detailed:
 # --warp affine --matcher affine --estimator affine --ba affine --wave_correct no
