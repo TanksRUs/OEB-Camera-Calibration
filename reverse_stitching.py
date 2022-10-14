@@ -64,11 +64,24 @@ for name in image_paths:
 for idx, name in enumerate(image_paths):
     img = cv.imread(name)
     K = cameras[idx].K().astype(np.float32)
+    mask_warped = masks[idx]
 
-    corner, image_warped = warper.warp(img, K, cameras[idx].R, cv.INTER_LINEAR, cv.BORDER_REFLECT)
+    # prob issues with scaling image
+    corner, image_warped = warper.warp(img, K, cameras[idx].R, cv.INTER_LINEAR, cv.BORDER_REFLECT) # TODO: cv2.error: OpenCV(4.6.0) D:\a\opencv-python\opencv-python\opencv\modules\stitching\src\warpers.cpp:359: error: (-215:Assertion failed) H.size() == Size(3, 3) && H.type() == CV_32F in function 'cv::detail::AffineWarper::getRTfromHomogeneous'
+    image_warped_s = image_warped.astype(np.int16)
     blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
     dst_sz = cv.detail.resultRoi(corners=corners, sizes=sizes)
     blend_width = np.sqrt(dst_sz[2] * dst_sz[3]) * blend_strength / 100
+    blender = cv.detail_MultiBandBlender()
+    blender.setNumBands((np.log(blend_width) / np.log(2.) - 1.).astype(np.int32))
+    blender.prepare(dst_sz)
+    blender.feed(cv.UMat(image_warped_s), mask_warped, corners[idx])
 
-
+result = None
+result_mask = None
+result, result_mask = blender.blend(result, result_mask)
+zoom_x = 600.0 / result.shape[1]
+dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
+dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
+cv.imshow('Stitched Image', dst)
 # K = cameras[i].K().astype(np.float32)
