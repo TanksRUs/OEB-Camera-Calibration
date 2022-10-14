@@ -480,7 +480,7 @@ def main():
         image_warped_s = image_warped.astype(np.int16)
         dilated_mask = cv.dilate(masks_warped[idx], None)
         seam_mask = cv.resize(dilated_mask, (mask_warped.shape[1], mask_warped.shape[0]), 0, 0, cv.INTER_LINEAR_EXACT)
-        mask_warped = cv.bitwise_and(seam_mask, mask_warped)
+        mask_warped = cv.bitwise_and(seam_mask, mask_warped) # TODO: figure out if this is the mask I should be saving
         if blender is None and not timelapse:
             blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
             dst_sz = cv.detail.resultRoi(corners=corners, sizes=sizes)
@@ -518,6 +518,7 @@ def main():
         dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
         dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
 
+        # Generate camera config and mask files
         with open('{}cameraConfigs.cfg'.format(output_folder), 'w') as f:
             for i in range(0, len(cameras)):
                 f.write('{}\n'.format(cameras[i].aspect))

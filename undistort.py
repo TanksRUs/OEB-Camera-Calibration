@@ -9,6 +9,7 @@ import os
 NUM_CAMS = 4
 # csv_path = 'C:/Users/duanr/Desktop/Stitching/calibration.csv'
 csv_path = filedialog.askopenfilename(title='Select Camera Calibration CSV', initialdir='C:/Users/duanr/Desktop/Stitching/')
+# csv_path = filedialog.askopenfilename(title='Select Camera Calibration CSV')
 mtxs = []
 dists = []
 
@@ -35,6 +36,7 @@ with open(csv_path, newline='') as csv_file:
 # --------------------------------
 
 folder_path = filedialog.askdirectory(title='Select Distorted Images Folder', initialdir='C:/Users/duanr/Desktop/Stitching/')
+# folder_path = filedialog.askdirectory(title='Select Distorted Images Folder')
 if folder_path == '':
     print('No folder selected!')
     quit()
