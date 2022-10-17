@@ -69,12 +69,12 @@ for img_path in images: # assuming images are in the same order as the camera or
     except FileExistsError:
         print('File already exists: ' + img_name)
 
-    command += ' ' + new_path
+    command += ' \"{}\"'.format(new_path)
     # cv.imshow('img', dst)
     # cv.waitKey(0)
     count += 1
 
-command += ' --warp affine --matcher affine --estimator affine --ba affine --wave_correct no --output_folder {}/'.format(os.path.dirname(folder_path))
+command += ' --warp affine --matcher affine --estimator affine --ba affine --wave_correct no --output_folder \"{}/\"'.format(os.path.dirname(folder_path))
 os.system(command)
 # parameters for stitching_detailed:
 # --warp affine --matcher affine --estimator affine --ba affine --wave_correct no

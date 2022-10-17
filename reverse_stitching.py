@@ -52,8 +52,9 @@ mask_file.release()
 
 warp_type = 'affine'
 warped_image_scale = 1
-seam_work_aspect = 1 # not exactly the same as stitching_detailed.py but shouldn't affect end result?
-warper = cv.PyRotationWarper(warp_type, warped_image_scale * seam_work_aspect)  # warper could be nullptr?
+# seam_work_aspect = 1 # not exactly the same as stitching_detailed.py but shouldn't affect end result?
+seam_megapix = 0.1
+work_scale = 1
 blend_strength = 5
 
 sizes = []
@@ -65,6 +66,9 @@ for idx, name in enumerate(image_paths):
     img = cv.imread(name)
     K = cameras[idx].K().astype(np.float32)
     mask_warped = masks[idx]
+    seam_scale = min(1.0, np.sqrt(seam_megapix * 1e6 / (img.shape[0] * img.shape[1])))
+    seam_work_aspect = seam_scale / work_scale
+    warper = cv.PyRotationWarper(warp_type, warped_image_scale * seam_work_aspect)  # warper could be nullptr?
 
     # prob issues with scaling image
     corner, image_warped = warper.warp(img, K, cameras[idx].R, cv.INTER_LINEAR, cv.BORDER_REFLECT) # TODO: cv2.error: OpenCV(4.6.0) D:\a\opencv-python\opencv-python\opencv\modules\stitching\src\warpers.cpp:359: error: (-215:Assertion failed) H.size() == Size(3, 3) && H.type() == CV_32F in function 'cv::detail::AffineWarper::getRTfromHomogeneous'
