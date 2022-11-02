@@ -31,8 +31,8 @@ BA_COST_CHOICES['no'] = cv.detail_NoBundleAdjuster
 
 FEATURES_FIND_CHOICES = OrderedDict()
 try:
-    cv.xfeatures2d_SURF.create() # check if the function can be called
-    FEATURES_FIND_CHOICES['surf'] = cv.xfeatures2d_SURF.create
+    cv.xfeatures2d.SURF_create() # check if the function can be called
+    FEATURES_FIND_CHOICES['surf'] = cv.xfeatures2d.SURF_create
 except (AttributeError, cv.error) as e:
     print("SURF not available")
 # if SURF not available, ORB is default
@@ -518,6 +518,9 @@ def main():
         dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
         dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
 
+        cv.imshow(result_name, dst)
+        cv.waitKey()
+
         # Generate camera config and mask files
         with open('{}cameraConfigs.cfg'.format(output_folder), 'w') as f:
             for i in range(0, len(cameras)):
@@ -539,8 +542,7 @@ def main():
             mask_file.write(name='mask{}'.format(i), val=temp_matrix)
         mask_file.release()
 
-        cv.imshow(result_name, dst)
-        cv.waitKey()
+
 
     print("Done")
 

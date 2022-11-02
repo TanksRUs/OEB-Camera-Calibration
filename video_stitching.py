@@ -1,28 +1,32 @@
 import cv2 as cv
 import numpy as np
 
-def stitch_frames(all_imgs): # pass in list of images
+def generate_configs(all_imgs): # pass in list of images
     ba = cv.detail_BundleAdjusterReproj() # --ba reproj
     ba_refine_mask = 'xxx_x' # --ba_refine_mask xxx_x
     warp_type = 'plane' # --warp plane
 
     # ----- default values -----
-    work_megapix = 0.6
-    seam_megapix = 0.1
+    blend_strength = 5
+    blend_type = 'multiband'
     compose_megapix = -1
     conf_thresh = 1.0
-    wave_correct = cv.detail.WAVE_CORRECT_HORIZ
-    blend_type = 'multiband'
-    blend_strength = 5
+    estimator = 'homography'
+    expos_comp = 'gain_blocks'
+    expos_comp_block_size = 32
+    expos_comp_nr_feeds = 1
+    expos_comp_type = cv.detail.ExposureCompensator_GAIN_BLOCKS
+    features = 'orb'
     finder = cv.ORB.create()
+    match_conf = None
+    matcher_type = 'homography'
+    range_width = -1
+    seam = 'dp_color'
+    seam_megapix = 0.1
     seam_work_aspect = 1
     try_cuda = False
-    matcher_type = 'homography'
-    match_conf = 0.3
-    range_width = -1
-    expos_comp_type = cv.detail.ExposureCompensator_GAIN_BLOCKS
-    expos_comp_nr_feeds = 1
-    expos_comp_block_size = 32
+    wave_correct = cv.detail.WAVE_CORRECT_HORIZ
+    work_megapix = 0.6
     # --------------------------
 
     full_img_sizes = []
@@ -136,4 +140,76 @@ def stitch_frames(all_imgs): # pass in list of images
     compose_scale = 1
     corners = []
     sizes = []
+    blender = None
 
+    for idx, full_img in enumerate(all_imgs):
+        if not is_compose_scale_set:
+            is_compose_scale_set = True
+            compose_work_aspect = compose_scale / work_scale
+            warped_image_scale *= compose_work_aspect
+            warper = cv.PyRotationWarper(warp_type, warped_image_scale)
+            for i in range(0, len(all_imgs)):
+                cameras[i].focal *= compose_work_aspect
+                cameras[i].ppx *= compose_work_aspect
+                cameras[i].ppy *= compose_work_aspect
+                sz = (int(round(full_img_sizes[i][0] * compose_scale)),
+                      int(round(full_img_sizes[i][1] * compose_scale)))
+                K = cameras[i].K().astype(np.float32)
+                roi = warper.warpRoi(sz, K, cameras[i].R)
+                corners.append(roi[0:2])
+                sizes.append(roi[2:4])
+
+        if abs(compose_scale - 1) > 1e-1:
+            img = cv.resize(src=full_img, dsize=None, fx=compose_scale, fy=compose_scale,
+                            interpolation=cv.INTER_LINEAR_EXACT)
+        else:
+            img = full_img
+
+        _img_size = (img.shape[1], img.shape[0])
+        K = cameras[idx].K().astype(np.float32)
+        corner, image_warped = warper.warp(img, K, cameras[idx].R, cv.INTER_LINEAR, cv.BORDER_REFLECT)
+        mask = 255 * np.ones((img.shape[0], img.shape[1]), np.uint8)
+        p, mask_warped = warper.warp(mask, K, cameras[idx].R, cv.INTER_NEAREST, cv.BORDER_CONSTANT)
+        compensator.apply(idx, corners[idx], image_warped, mask_warped)
+        image_warped_s = image_warped.astype(np.int16)
+        dilated_mask = cv.dilate(masks_warped[idx], None)
+        seam_mask = cv.resize(dilated_mask, (mask_warped.shape[1], mask_warped.shape[0]), 0, 0, cv.INTER_LINEAR_EXACT)
+        mask_warped = cv.bitwise_and(seam_mask, mask_warped)  # TODO: figure out if this is the mask I should be saving
+
+        if blender is None: # no timelapse
+            blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
+            dst_sz = cv.detail.resultRoi(corners=corners, sizes=sizes)
+            blend_width = np.sqrt(dst_sz[2] * dst_sz[3]) * blend_strength / 100
+            if blend_width < 1:
+                blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
+            elif blend_type == "multiband":
+                blender = cv.detail_MultiBandBlender()
+                blender.setNumBands((np.log(blend_width) / np.log(2.) - 1.).astype(np.int32))
+            elif blend_type == "feather":
+                blender = cv.detail_FeatherBlender()
+                blender.setSharpness(1. / blend_width)
+            blender.prepare(dst_sz)
+        blender.feed(cv.UMat(image_warped_s), mask_warped, corners[idx])
+
+    result = None
+    result_mask = None
+    result, result_mask = blender.blend(result, result_mask)
+    zoom_x = 600.0 / result.shape[1]
+    dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
+    dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
+    cv.imshow('Stitched Image', dst)
+    cv.waitKey()
+
+    return dst
+
+def main():
+    im1 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
+    im2 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
+    im3 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
+    im4 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
+
+    all_imgs = [im1, im2, im3, im4]
+    generate_configs(all_imgs)
+
+if __name__ == '__main__':
+    main()
