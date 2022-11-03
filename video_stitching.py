@@ -142,13 +142,14 @@ def generate_configs(all_imgs): # pass in list of images
     sizes = []
     blender = None
 
-    for idx, full_img in enumerate(all_imgs):
+    for idx in range(0, len(images)):
+        full_img = all_imgs[idx]
         if not is_compose_scale_set:
             is_compose_scale_set = True
             compose_work_aspect = compose_scale / work_scale
             warped_image_scale *= compose_work_aspect
             warper = cv.PyRotationWarper(warp_type, warped_image_scale)
-            for i in range(0, len(all_imgs)):
+            for i in range(0, len(images)):
                 cameras[i].focal *= compose_work_aspect
                 cameras[i].ppx *= compose_work_aspect
                 cameras[i].ppy *= compose_work_aspect
@@ -203,10 +204,14 @@ def generate_configs(all_imgs): # pass in list of images
     return dst
 
 def main():
-    im1 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
-    im2 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
-    im3 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
-    im4 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
+    # im1 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
+    # im2 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/2.png")
+    # im3 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/3.png")
+    # im4 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/4.png")
+    im1 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\1.png")
+    im2 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\2.png")
+    im3 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\3.png")
+    im4 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\4.png")
 
     all_imgs = [im1, im2, im3, im4]
     generate_configs(all_imgs)
