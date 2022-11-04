@@ -1,5 +1,6 @@
 import cv2 as cv
 import numpy as np
+from collections import OrderedDict
 
 def generate_configs(all_imgs): # pass in list of images
     ba = cv.detail_BundleAdjusterReproj() # --ba reproj
@@ -200,8 +201,13 @@ def generate_configs(all_imgs): # pass in list of images
     dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
     cv.imshow('Stitched Image', dst)
     cv.waitKey()
+    cv.destroyAllWindows()
 
-    return dst
+    ret_val = OrderedDict()
+    ret_val['cameras'] = cameras
+    ret_val['masks_warped'] = masks_warped
+
+    return ret_val
 
 def main():
     # im1 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
