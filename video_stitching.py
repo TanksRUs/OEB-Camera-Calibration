@@ -1,8 +1,10 @@
 import cv2 as cv
 import numpy as np
 from collections import OrderedDict
+import csv
 
-def generate_configs(all_imgs): # pass in list of images
+
+def generate_stitching_params(all_imgs): # pass in list of images
     ba = cv.detail_BundleAdjusterReproj() # --ba reproj
     ba_refine_mask = 'xxx_x' # --ba_refine_mask xxx_x
     warp_type = 'plane' # --warp plane
@@ -206,21 +208,109 @@ def generate_configs(all_imgs): # pass in list of images
     ret_val = OrderedDict()
     ret_val['cameras'] = cameras
     ret_val['masks_warped'] = masks_warped
+    ret_val['corners'] = corners
+    ret_val['sizes'] = sizes
 
     return ret_val
 
+
+def save_configs(ret_val, output_folder):
+    cameras = ret_val['cameras']
+    masks_warped = ret_val['masks_warped']
+    corners = ret_val['corners']
+    sizes = ret_val['sizes']
+
+    with open('{}cameraConfigs.cfg'.format(output_folder), 'w') as f:
+        for i in range(0, len(corners)):
+            f.write('{}\n'.format(cameras[i].aspect))
+            f.write('{}\n'.format(cameras[i].focal))
+            f.write('{}\n'.format(cameras[i].ppx))
+            f.write('{}\n'.format(cameras[i].ppy))
+            for row in range(0, 3):
+                for col in range(0, 3):
+                    f.write('{}\n'.format(cameras[i].R[row][col]))
+            for row in range(0, 3):
+                f.write('{}\n'.format(cameras[i].t[row][0]))
+            f.write('{}\n'.format(corners[i][0]))
+            f.write('{}\n'.format(corners[i][1]))
+            f.write('{}\n'.format(sizes[i][0]))
+            f.write('{}\n'.format(sizes[i][1]))
+
+    mask_file = cv.FileStorage('{}masks.yml'.format(output_folder), cv.FILE_STORAGE_WRITE)
+    for i in range(0, len(masks_warped)):
+        mask = cv.UMat.get(masks_warped[i])
+        mask_file.write(name='mask{}'.format(i), val=mask)
+    mask_file.release()
+
+
+def read_calibration(csv_path, num_cams):
+    mtxs = []
+    dists = []
+    with open(csv_path, newline='') as csv_file:
+        reader = csv.reader(csv_file)
+        for i in range(0, num_cams):
+            for header in range(0, 4):  # skips header rows
+                next(reader)
+            mtx = []
+            mtx.append([float(x) for x in next(reader)])
+            mtx.append([float(x) for x in next(reader)])
+            mtx.append([float(x) for x in next(reader)])
+            mtx = np.array(mtx)
+            mtxs.append(mtx)
+            next(reader)
+            next(reader)
+            dist = [[float(x) for x in next(reader)]]
+            dist = np.array(dist)
+            dists.append(dist)
+            try:  # in case there's no line return at the end of the file
+                next(reader)
+            except StopIteration:
+                pass
+
+    # ret_val = OrderedDict()
+    # ret_val['mtxs'] = mtxs
+    # ret_val['dists'] = dists
+    return mtxs, dists
+
+
+def undistort(all_imgs, mtxs, dists):
+    undistorted_imgs = []
+    for i in range(0, len(all_imgs)):
+        img = all_imgs[i]
+        mtx = mtxs[i]
+        dist = dists[i]
+        h, w = img.shape[:2]
+        newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
+        undistorted = cv.undistort(img, mtx, dist, None, newcameramtx)
+        x, y, w, h = roi
+        undistorted = undistorted[y:y + h, x:x + w]
+        undistorted_imgs.append(undistorted)
+
+    return undistorted_imgs
+
+
+
 def main():
-    # im1 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
-    # im2 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/2.png")
-    # im3 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/3.png")
-    # im4 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/4.png")
-    im1 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\1.png")
-    im2 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\2.png")
-    im3 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\3.png")
-    im4 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\4.png")
+    # TODO: file input selections
+    save_path = 'C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/'
+    csv_path = 'C:\\Users\\duanr\\Desktop\\Stitching\\calibration.csv'
+    im1 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
+    im2 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/2.png")
+    im3 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/3.png")
+    im4 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/4.png")
+    # im1 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\1.png")
+    # im2 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\2.png")
+    # im3 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\3.png")
+    # im4 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\4.png")
 
     all_imgs = [im1, im2, im3, im4]
-    generate_configs(all_imgs)
+    num_cams = len(all_imgs)
+    mtxs, dists = read_calibration(csv_path, num_cams)
+    all_imgs = undistort(all_imgs, mtxs, dists)
+
+    stitching_params = generate_stitching_params(all_imgs)
+    save_configs(stitching_params, save_path)
+
 
 if __name__ == '__main__':
     main()
