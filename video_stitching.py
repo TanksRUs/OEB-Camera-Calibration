@@ -1,13 +1,55 @@
 import cv2 as cv
 import numpy as np
 from collections import OrderedDict
-import csv
 
 
-def generate_stitching_params(all_imgs): # pass in list of images
-    ba = cv.detail_BundleAdjusterReproj() # --ba reproj
-    ba_refine_mask = 'xxx_x' # --ba_refine_mask xxx_x
-    warp_type = 'plane' # --warp plane
+def read_configs(cameraConfigs_path, masks_path):
+    num_cams = 0
+    cameras = []
+    masks = []
+    corners = []
+    sizes = []
+    with open(cameraConfigs_path, 'r', newline='') as f:
+        while True:
+            line = f.readline()
+            if not line:  # check if we're at the end of the file
+                break
+            aspect = float(line)
+            focal = float(f.readline())
+            ppx = float(f.readline())
+            ppy = float(f.readline())
+            R = []
+            for i in range(0, 3):
+                R.append([float(f.readline()), float(f.readline()), float(f.readline())])
+            R = np.array(R)
+            t = [[float(f.readline())], [float(f.readline())], [float(f.readline())]]
+            t = np.array(t)
+            corners.append(float(f.readline()), float(f.readline()))
+            sizes.append = (float(f.readline()), float(f.readline()))
+
+            camera = cv.detail.CameraParams()
+            camera.aspect = aspect
+            camera.focal = focal
+            camera.ppx = ppx
+            camera.ppy = ppy
+            camera.R = R
+            camera.t = t
+            cameras.append(camera)
+            num_cams += 1
+
+    mask_file = cv.FileStorage(masks_path, cv.FileStorage_READ)
+    for view in range(0, num_cams):
+        mask_count = 'mask{}'.format(view)
+        masks.append(mask_file.getNode(mask_count).mat())
+    mask_file.release()
+
+    return cameras, corners, sizes, masks
+
+
+def stitch_frame(all_imgs, cameras, corners, sizes, masks):
+    ba = cv.detail_BundleAdjusterReproj()  # --ba reproj
+    ba_refine_mask = 'xxx_x'  # --ba_refine_mask xxx_x
+    warp_type = 'plane'  # --warp plane
 
     # ----- default values -----
     blend_strength = 5
@@ -32,14 +74,15 @@ def generate_stitching_params(all_imgs): # pass in list of images
     work_megapix = 0.6
     # --------------------------
 
-    full_img_sizes = []
-    features = []
-    images = []
+    sizes = []
+    for img in all_imgs:
+        sizes.append((img.shape[1], img.shape[0]))
+
     is_work_scale_set = False
     is_seam_scale_set = False
     is_compose_scale_set = False
     for full_img in all_imgs:
-        full_img_sizes.append((full_img.shape[1], full_img.shape[0]))
+        # full_img_sizes.append((full_img.shape[1], full_img.shape[0]))
         if is_work_scale_set is False:
             work_scale = min(1.0, np.sqrt(work_megapix * 1e6 / (full_img.shape[0] * full_img.shape[1])))
             is_work_scale_set = True
@@ -48,47 +91,10 @@ def generate_stitching_params(all_imgs): # pass in list of images
             seam_scale = min(1.0, np.sqrt(seam_megapix * 1e6 / (full_img.shape[0] * full_img.shape[1])))
             seam_work_aspect = seam_scale / work_scale
             is_seam_scale_set = True
-        img_feat = cv.detail.computeImageFeatures2(finder, img)
-        features.append(img_feat)
+        # img_feat = cv.detail.computeImageFeatures2(finder, img)
+        # features.append(img_feat)
         img = cv.resize(src=full_img, dsize=None, fx=seam_scale, fy=seam_scale, interpolation=cv.INTER_LINEAR_EXACT)
-        images.append(img)
-
-    matcher = cv.detail_BestOf2NearestMatcher(try_cuda, match_conf)
-    p = matcher.apply2(features)
-    matcher.collectGarbage()
-
-    indices = cv.detail.leaveBiggestComponent(features, p, conf_thresh)
-    img_subset = []
-    full_img_sizes_subset = []
-    for i in range(len(indices)):
-        img_subset.append(images[indices[i]])
-        full_img_sizes_subset.append(full_img_sizes[indices[i]])
-
-    images = img_subset
-    full_img_sizes = full_img_sizes_subset
-    num_images = len(images)
-    estimator = cv.detail_HomographyBasedEstimator()
-    b, cameras = estimator.apply(features, p, None)
-
-    for cam in cameras:
-        cam.R = cam.R.astype(np.float32)
-
-    adjuster = ba
-    adjuster.setConfThresh(conf_thresh)
-
-    refine_mask = np.zeros((3, 3), np.uint8)
-    if ba_refine_mask[0] == 'x':
-        refine_mask[0, 0] = 1
-    if ba_refine_mask[1] == 'x':
-        refine_mask[0, 1] = 1
-    if ba_refine_mask[2] == 'x':
-        refine_mask[0, 2] = 1
-    if ba_refine_mask[3] == 'x':
-        refine_mask[1, 1] = 1
-    if ba_refine_mask[4] == 'x':
-        refine_mask[1, 2] = 1
-    adjuster.setRefinementMask(refine_mask)
-    b, cameras = adjuster.apply(features, p, cameras)
+        # images.append(img)
 
     focals = []
     for cam in cameras:
@@ -99,101 +105,25 @@ def generate_stitching_params(all_imgs): # pass in list of images
     else:
         warped_image_scale = (focals[len(focals) // 2] + focals[len(focals) // 2 - 1]) / 2
 
-    rmats = [] # only if wave_correct is not None
-    for cam in cameras:
-        rmats.append(np.copy(cam.R))
-    rmats = cv.detail.waveCorrect(rmats, wave_correct)
-    for idx, cam in enumerate(cameras):
-        cam.R = rmats[idx]
+    for i in range(0, all_imgs):
+        img = all_imgs[i]
+        K = cameras[i].K().astype(np.float32)
+        mask_warped = masks[i]
+        seam_scale = min(1.0, np.sqrt(seam_megapix * 1e6 / (img.shape[0] * img.shape[1])))
+        seam_work_aspect = seam_scale / work_scale
+        warper = cv.PyRotationWarper(warp_type, warped_image_scale * seam_work_aspect)  # warper could be nullptr?
 
-    corners = []
-    masks_warped = []
-    images_warped = []
-    sizes = []
-    masks = []
-    for i in range(0, num_images):
-        um = cv.UMat(255 * np.ones((images[i].shape[0], images[i].shape[1]), np.uint8))
-        masks.append(um)
-
-    warper = cv.PyRotationWarper(warp_type, warped_image_scale * seam_work_aspect)  # warper could be nullptr?
-    for idx in range(0, num_images):
-        K = cameras[idx].K().astype(np.float32)
-        swa = seam_work_aspect
-        K[0, 0] *= swa
-        K[0, 2] *= swa
-        K[1, 1] *= swa
-        K[1, 2] *= swa
-        corner, image_wp = warper.warp(images[idx], K, cameras[idx].R, cv.INTER_LINEAR, cv.BORDER_REFLECT)
-        corners.append(corner)
-        sizes.append((image_wp.shape[1], image_wp.shape[0]))
-        images_warped.append(image_wp)
-        p, mask_wp = warper.warp(masks[idx], K, cameras[idx].R, cv.INTER_NEAREST, cv.BORDER_CONSTANT)
-        masks_warped.append(mask_wp.get())
-
-    images_warped_f = []
-    for img in images_warped:
-        imgf = img.astype(np.float32)
-        images_warped_f.append(imgf)
-
-    compensator = cv.detail.ExposureCompensator_createDefault(expos_comp_type)
-    compensator.feed(corners=corners, images=images_warped, masks=masks_warped)
-
-    seam_finder = cv.detail_DpSeamFinder('COLOR')
-    masks_warped = seam_finder.find(images_warped_f, corners, masks_warped)
-    compose_scale = 1
-    corners = []
-    sizes = []
-    blender = None
-
-    for idx in range(0, len(images)):
-        full_img = all_imgs[idx]
-        if not is_compose_scale_set:
-            is_compose_scale_set = True
-            compose_work_aspect = compose_scale / work_scale
-            warped_image_scale *= compose_work_aspect
-            warper = cv.PyRotationWarper(warp_type, warped_image_scale)
-            for i in range(0, len(images)):
-                cameras[i].focal *= compose_work_aspect
-                cameras[i].ppx *= compose_work_aspect
-                cameras[i].ppy *= compose_work_aspect
-                sz = (int(round(full_img_sizes[i][0] * compose_scale)),
-                      int(round(full_img_sizes[i][1] * compose_scale)))
-                K = cameras[i].K().astype(np.float32)
-                roi = warper.warpRoi(sz, K, cameras[i].R)
-                corners.append(roi[0:2])
-                sizes.append(roi[2:4])
-
-        if abs(compose_scale - 1) > 1e-1:
-            img = cv.resize(src=full_img, dsize=None, fx=compose_scale, fy=compose_scale,
-                            interpolation=cv.INTER_LINEAR_EXACT)
-        else:
-            img = full_img
-
-        _img_size = (img.shape[1], img.shape[0])
-        K = cameras[idx].K().astype(np.float32)
-        corner, image_warped = warper.warp(img, K, cameras[idx].R, cv.INTER_LINEAR, cv.BORDER_REFLECT)
-        mask = 255 * np.ones((img.shape[0], img.shape[1]), np.uint8)
-        p, mask_warped = warper.warp(mask, K, cameras[idx].R, cv.INTER_NEAREST, cv.BORDER_CONSTANT)
-        compensator.apply(idx, corners[idx], image_warped, mask_warped)
+        # prob issues with scaling image
+        corner, image_warped = warper.warp(img, K, cameras[i].R, cv.INTER_LINEAR,
+                                           cv.BORDER_REFLECT)  # TODO: cv2.error: OpenCV(4.6.0) D:\a\opencv-python\opencv-python\opencv\modules\stitching\src\warpers.cpp:359: error: (-215:Assertion failed) H.size() == Size(3, 3) && H.type() == CV_32F in function 'cv::detail::AffineWarper::getRTfromHomogeneous'
         image_warped_s = image_warped.astype(np.int16)
-        dilated_mask = cv.dilate(masks_warped[idx], None)
-        seam_mask = cv.resize(dilated_mask, (mask_warped.shape[1], mask_warped.shape[0]), 0, 0, cv.INTER_LINEAR_EXACT)
-        mask_warped = cv.bitwise_and(seam_mask, mask_warped)  # TODO: figure out if this is the mask I should be saving
-
-        if blender is None: # no timelapse
-            blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
-            dst_sz = cv.detail.resultRoi(corners=corners, sizes=sizes)
-            blend_width = np.sqrt(dst_sz[2] * dst_sz[3]) * blend_strength / 100
-            if blend_width < 1:
-                blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
-            elif blend_type == "multiband":
-                blender = cv.detail_MultiBandBlender()
-                blender.setNumBands((np.log(blend_width) / np.log(2.) - 1.).astype(np.int32))
-            elif blend_type == "feather":
-                blender = cv.detail_FeatherBlender()
-                blender.setSharpness(1. / blend_width)
-            blender.prepare(dst_sz)
-        blender.feed(cv.UMat(image_warped_s), mask_warped, corners[idx])
+        blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
+        dst_sz = cv.detail.resultRoi(corners=corners, sizes=sizes)
+        blend_width = np.sqrt(dst_sz[2] * dst_sz[3]) * blend_strength / 100
+        blender = cv.detail_MultiBandBlender()
+        blender.setNumBands((np.log(blend_width) / np.log(2.) - 1.).astype(np.int32))
+        blender.prepare(dst_sz)
+        blender.feed(cv.UMat(image_warped_s), mask_warped, corners[i])
 
     result = None
     result_mask = None
@@ -201,115 +131,22 @@ def generate_stitching_params(all_imgs): # pass in list of images
     zoom_x = 600.0 / result.shape[1]
     dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
     dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
-    cv.imshow('Stitched Image', dst)
-    cv.waitKey()
-    cv.destroyAllWindows()
 
-    ret_val = OrderedDict()
-    ret_val['cameras'] = cameras
-    ret_val['masks_warped'] = masks_warped
-    ret_val['corners'] = corners
-    ret_val['sizes'] = sizes
-
-    return ret_val
-
-
-def save_configs(ret_val, output_folder):
-    cameras = ret_val['cameras']
-    masks_warped = ret_val['masks_warped']
-    corners = ret_val['corners']
-    sizes = ret_val['sizes']
-
-    with open('{}cameraConfigs.cfg'.format(output_folder), 'w') as f:
-        for i in range(0, len(corners)):
-            f.write('{}\n'.format(cameras[i].aspect))
-            f.write('{}\n'.format(cameras[i].focal))
-            f.write('{}\n'.format(cameras[i].ppx))
-            f.write('{}\n'.format(cameras[i].ppy))
-            for row in range(0, 3):
-                for col in range(0, 3):
-                    f.write('{}\n'.format(cameras[i].R[row][col]))
-            for row in range(0, 3):
-                f.write('{}\n'.format(cameras[i].t[row][0]))
-            f.write('{}\n'.format(corners[i][0]))
-            f.write('{}\n'.format(corners[i][1]))
-            f.write('{}\n'.format(sizes[i][0]))
-            f.write('{}\n'.format(sizes[i][1]))
-
-    mask_file = cv.FileStorage('{}masks.yml'.format(output_folder), cv.FILE_STORAGE_WRITE)
-    for i in range(0, len(masks_warped)):
-        mask = cv.UMat.get(masks_warped[i])
-        mask_file.write(name='mask{}'.format(i), val=mask)
-    mask_file.release()
-
-
-def read_calibration(csv_path, num_cams):
-    mtxs = []
-    dists = []
-    with open(csv_path, newline='') as csv_file:
-        reader = csv.reader(csv_file)
-        for i in range(0, num_cams):
-            for header in range(0, 4):  # skips header rows
-                next(reader)
-            mtx = []
-            mtx.append([float(x) for x in next(reader)])
-            mtx.append([float(x) for x in next(reader)])
-            mtx.append([float(x) for x in next(reader)])
-            mtx = np.array(mtx)
-            mtxs.append(mtx)
-            next(reader)
-            next(reader)
-            dist = [[float(x) for x in next(reader)]]
-            dist = np.array(dist)
-            dists.append(dist)
-            try:  # in case there's no line return at the end of the file
-                next(reader)
-            except StopIteration:
-                pass
-
-    # ret_val = OrderedDict()
-    # ret_val['mtxs'] = mtxs
-    # ret_val['dists'] = dists
-    return mtxs, dists
-
-
-def undistort(all_imgs, mtxs, dists):
-    undistorted_imgs = []
-    for i in range(0, len(all_imgs)):
-        img = all_imgs[i]
-        mtx = mtxs[i]
-        dist = dists[i]
-        h, w = img.shape[:2]
-        newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))
-        undistorted = cv.undistort(img, mtx, dist, None, newcameramtx)
-        x, y, w, h = roi
-        undistorted = undistorted[y:y + h, x:x + w]
-        undistorted_imgs.append(undistorted)
-
-    return undistorted_imgs
-
+    return dst
 
 
 def main():
-    # TODO: file input selections
-    save_path = 'C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/'
-    csv_path = 'C:\\Users\\duanr\\Desktop\\Stitching\\calibration.csv'
-    im1 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
-    im2 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/2.png")
-    im3 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/3.png")
-    im4 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/4.png")
-    # im1 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\1.png")
-    # im2 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\2.png")
-    # im3 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\3.png")
-    # im4 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\4.png")
+    cameraConfigs_path = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\cameraConfigs.cfg'
+    masks_path = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\masks.yml'
+    vid1 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\Videos\\psv_lattice_final_run1_cam1.avi'
+    vid2 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\Videos\\psv_lattice_final_run1_cam2.avi'
+    vid3 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\Videos\\psv_lattice_final_run1_cam3.avi'
+    vid4 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\Videos\\psv_lattice_final_run1_cam4.avi'
+    all_vids = [vid1, vid2, vid3, vid4]
+    cameras, corners, sizes, masks = read_configs(cameraConfigs_path, masks_path)
 
-    all_imgs = [im1, im2, im3, im4]
-    num_cams = len(all_imgs)
-    mtxs, dists = read_calibration(csv_path, num_cams)
-    all_imgs = undistort(all_imgs, mtxs, dists)
 
-    stitching_params = generate_stitching_params(all_imgs)
-    save_configs(stitching_params, save_path)
+
 
 
 if __name__ == '__main__':
