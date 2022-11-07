@@ -43,10 +43,23 @@ def read_configs(cameraConfigs_path, masks_path):
         masks.append(mask_file.getNode(mask_count).mat())
     mask_file.release()
 
-    return cameras, corners, sizes, masks
+    ret_val = {
+        'cameras': cameras,
+        'corners': corners,
+        'sizes': sizes,
+        'masks': masks
+    }
+
+    # return cameras, corners, sizes, masks
+    return ret_val
 
 
-def stitch_frame(all_imgs, cameras, corners, sizes, masks):
+def stitch_frame(all_imgs, camera_configs):
+    cameras = camera_configs['cameras']
+    corners = camera_configs['corners']
+    sizes = camera_configs['sizes']
+    masks = camera_configs['masks']
+
     ba = cv.detail_BundleAdjusterReproj()  # --ba reproj
     ba_refine_mask = 'xxx_x'  # --ba_refine_mask xxx_x
     warp_type = 'plane'  # --warp plane
@@ -135,18 +148,53 @@ def stitch_frame(all_imgs, cameras, corners, sizes, masks):
     return dst
 
 
+def read_videos(all_vids, camera_configs, output_path, fps, vid_size):
+    caps = []
+    # stitched_frames = []
+
+    # Define the codec and create VideoWriter object
+    fourcc = cv.VideoWriter_fourcc(*'DIVX')
+    out = cv.VideoWriter(output_path, fourcc, fps, vid_size)
+
+    for vid_path in all_vids:
+        caps.append(cv.VideoCapture(vid_path))
+
+    while caps[0].isOpened():
+        ret = []
+        frames = []
+        for cap in caps: # read through all videos
+            ret_temp, frame_temp = cap.read()
+            ret.append(ret_temp)
+            frames.append(frame_temp)
+
+        if not all(ret):
+            print("Can't receive frame (stream end?). Exiting ...")
+            break
+
+        # stitched_frames.append(stitch_frame(frames, camera_configs))
+        out.write(stitch_frame(frames, camera_configs))
+
+    for cap in caps:
+        cap.release()
+    out.release()
+
+    # return stitched_frames
+
+
 def main():
     cameraConfigs_path = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\cameraConfigs.cfg'
     masks_path = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\masks.yml'
-    vid1 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\Videos\\psv_lattice_final_run1_cam1.avi'
-    vid2 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\Videos\\psv_lattice_final_run1_cam2.avi'
-    vid3 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\Videos\\psv_lattice_final_run1_cam3.avi'
-    vid4 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\Videos\\psv_lattice_final_run1_cam4.avi'
+    vid1 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\Videos\\psv_lattice_final_run1_cam1.avi'
+    vid2 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\Videos\\psv_lattice_final_run1_cam2.avi'
+    vid3 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\Videos\\psv_lattice_final_run1_cam3.avi'
+    vid4 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\Videos\\psv_lattice_final_run1_cam4.avi'
     all_vids = [vid1, vid2, vid3, vid4]
-    cameras, corners, sizes, masks = read_configs(cameraConfigs_path, masks_path)
+    camera_configs = read_configs(cameraConfigs_path, masks_path)
 
-
-
+    output_vid = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\Videos\\stitched.avi'
+    fps = 30
+    vid_size = (720, 1280)
+    read_videos(all_vids, camera_configs, output_vid, fps, vid_size)
 
 
 if __name__ == '__main__':
