@@ -5,6 +5,7 @@ from tkinter import filedialog
 import glob
 import os
 
+IMAGE_EXTS = ['jpg', 'jpeg', 'png'] # valid image extensions
 # -----READ CSV-----
 NUM_CAMS = 4
 # csv_path = 'C:/Users/duanr/Desktop/Stitching/calibration.csv'
@@ -45,7 +46,10 @@ output_folder = os.path.dirname(folder_path) + '/Undistorted'
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 
-images = glob.glob(folder_path + '/*.png')  # TODO: make sure this matches the image file type
+for extension in IMAGE_EXTS:
+    images = glob.glob('{}/*.{}'.format(folder_path, extension))
+    if images: # if there are files with the specified extension
+        break
 count = 0
 command = 'stitching_detailed.py'
 

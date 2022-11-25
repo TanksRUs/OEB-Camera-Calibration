@@ -5,13 +5,16 @@ from tkinter import filedialog
 import csv
 
 # ------CHECKERBOARD PROPERTIES------
-ROWS = 6
-COLUMNS = 9
+ROWS = 9 - 1 # start indexing at 0
+COLUMNS = 7 - 1
 GRID_SIZE = 1 # in [mm], 1 for unknown/dimensionless
 # -----------------------------------
-CSV_PATH = 'C:/Users/duanr/Desktop/Camera Calibration/calibration.csv'
+IMAGE_EXTS = ['jpg', 'jpeg', 'png'] # valid image extensions
+CSV_PATH = filedialog.askdirectory()
+CSV_PATH += '/calibration.csv'
+# CSV_PATH = 'C:/Users/duanr/Desktop/Camera Calibration/calibration.csv'
 
-img_path = filedialog.askdirectory(initialdir='C:/Users/duanr/Desktop/Camera Calibration/Raw Images/')
+img_path = filedialog.askdirectory()
 if img_path == '':
     print('No folder selected!')
     quit()
@@ -26,7 +29,10 @@ objp *= GRID_SIZE
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
-images = glob.glob(img_path + '/*.jpg')
+for extension in IMAGE_EXTS:
+    images = glob.glob('{}/*.{}'.format(img_path, extension))
+    if images: # if there are files with the specified extension
+        break
 
 for fname in images:
     img = cv.imread(fname)
