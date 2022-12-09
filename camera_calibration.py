@@ -5,16 +5,14 @@ from tkinter import filedialog
 import csv
 
 # ------CHECKERBOARD PROPERTIES------
-ROWS = 9 - 1 # start indexing at 0
-COLUMNS = 7 - 1
+ROWS = 10 - 1 # start indexing at 0
+COLUMNS = 15 - 1
 GRID_SIZE = 1 # in [mm], 1 for unknown/dimensionless
 # -----------------------------------
 IMAGE_EXTS = ['jpg', 'jpeg', 'png'] # valid image extensions
-CSV_PATH = filedialog.askdirectory()
-CSV_PATH += '/calibration.csv'
-# CSV_PATH = 'C:/Users/duanr/Desktop/Camera Calibration/calibration.csv'
+CSV_PATH = filedialog.asksaveasfilename(title='Select or save calibration CSV:', initialfile='calibration.csv', filetypes=(('CSV','*.csv'),('All files','*.*')))
 
-img_path = filedialog.askdirectory()
+img_path = filedialog.askdirectory(title='Select images folder:')
 if img_path == '':
     print('No folder selected!')
     quit()
@@ -45,13 +43,22 @@ for fname in images:
         objpoints.append(objp)
         imgpoints.append(corners)
         # Draw and display the corners
-        # corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         # cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners2, ret)
         # cv.imshow('img', img)
         # cv.waitKey(0)
 # cv.destroyAllWindows()
 
 ret, mtx, dist, rvecs, tvecs  = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+
+# validate distortion coeffs by showing last image undistorted
+h, w = img.shape[:2]
+newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
+dst = cv.undistort(img, mtx, dist, None, newcameramtx)
+x, y, w, h = roi
+dst = cv.resize(dst[y:y+h, x:x+w], (1024, 768))
+cv.imshow('Undistorted Image', dst)
+cv.waitKey(0)
 
 with open(CSV_PATH, 'a', newline='') as f:
     writer = csv.writer(f)
