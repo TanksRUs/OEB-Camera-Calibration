@@ -13,8 +13,7 @@ from collections import OrderedDict
 
 import cv2 as cv
 import numpy as np
-
-import yaml
+from tkinter import filedialog
 
 EXPOS_COMP_CHOICES = OrderedDict()
 EXPOS_COMP_CHOICES['gain_blocks'] = cv.detail.ExposureCompensator_GAIN_BLOCKS
@@ -280,7 +279,8 @@ def get_compensator(args):
 
 def main():
     args = parser.parse_args()
-    img_names = args.img_names
+    # img_names = args.img_names
+    img_names = filedialog.askopenfilenames(title='Select images to stitch:')
     print(img_names)
     work_megapix = args.work_megapix
     seam_megapix = args.seam_megapix
@@ -312,11 +312,14 @@ def main():
     full_img_sizes = []
     features = []
     images = []
+    images_kp = []
     is_work_scale_set = False
     is_seam_scale_set = False
     is_compose_scale_set = False
     for name in img_names:
         full_img = cv.imread(cv.samples.findFile(name))
+        # TODO: remove
+        # full_img = cv.fastNlMeansDenoisingColored(full_img, 3, 3, 7, 21)
         if full_img is None:
             print("Cannot read image ", name)
             exit()
@@ -339,8 +342,21 @@ def main():
             is_seam_scale_set = True
         img_feat = cv.detail.computeImageFeatures2(finder, img)
         features.append(img_feat)
+
+        # show keypoints
+        keypoints = img_feat.getKeypoints()
+        img_kp = img
+        # img_kp = cv.drawKeypoints(img, keypoints, img_kp)
+        img_kp = cv.drawKeypoints(img, keypoints, img_kp, flags=cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        images_kp.append(img_kp)
+
         img = cv.resize(src=full_img, dsize=None, fx=seam_scale, fy=seam_scale, interpolation=cv.INTER_LINEAR_EXACT)
         images.append(img)
+
+    for i in range(0, len(images_kp)):
+        cv.imshow('Keypoints {}'.format(i), images_kp[i])
+    cv.waitKey(0)
+    cv.destroyAllWindows()
 
     matcher = get_matcher(args)
     p = matcher.apply2(features)
