@@ -192,7 +192,7 @@ def generate_stitching_params(all_imgs): # pass in list of images
         image_warped_s = image_warped.astype(np.int16)
         dilated_mask = cv.dilate(masks_warped[idx], None)
         seam_mask = cv.resize(dilated_mask, (mask_warped.shape[1], mask_warped.shape[0]), 0, 0, cv.INTER_LINEAR_EXACT)
-        mask_warped = cv.bitwise_and(seam_mask, mask_warped)  # TODO: figure out if this is the mask I should be saving
+        mask_warped = cv.bitwise_and(seam_mask, mask_warped)
 
         if blender is None: # no timelapse
             blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
