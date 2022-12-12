@@ -2,26 +2,25 @@ import cv2 as cv
 import numpy as np
 from collections import OrderedDict
 import csv
+from tkinter import filedialog
 
 
 def generate_stitching_params(all_imgs): # pass in list of images
-    ba = cv.detail_BundleAdjusterReproj() # --ba reproj
-    ba_refine_mask = 'xxx_x' # --ba_refine_mask xxx_x
-    warp_type = 'plane' # --warp plane
-
-    # ----- default values -----
+    # ----- stitching parameters -----
+    ba = cv.detail_BundleAdjusterReproj()  # --ba reproj
+    ba_refine_mask = 'xxx_x'  # --ba_refine_mask xxx_x
+    warp_type = 'plane'  # --warp plane
     blend_strength = 5
     blend_type = 'multiband'
     compose_megapix = -1
-    conf_thresh = 1.0
+    conf_thresh = 0.5 # --conf_thresh 0.5
     estimator = 'homography'
     expos_comp = 'gain_blocks'
     expos_comp_block_size = 32
     expos_comp_nr_feeds = 1
     expos_comp_type = cv.detail.ExposureCompensator_GAIN_BLOCKS
-    features = 'orb'
-    finder = cv.ORB.create()
-    match_conf = None
+    finder = cv.SIFT_create() # --features sift
+    match_conf = 0.65 # --match_conf 0.65
     matcher_type = 'homography'
     range_width = -1
     seam = 'dp_color'
@@ -35,6 +34,7 @@ def generate_stitching_params(all_imgs): # pass in list of images
     full_img_sizes = []
     features = []
     images = []
+    images_kp = []
     is_work_scale_set = False
     is_seam_scale_set = False
     is_compose_scale_set = False
@@ -50,8 +50,22 @@ def generate_stitching_params(all_imgs): # pass in list of images
             is_seam_scale_set = True
         img_feat = cv.detail.computeImageFeatures2(finder, img)
         features.append(img_feat)
+
+        # show keypoints
+        keypoints = img_feat.getKeypoints()
+        img_kp = img
+        # img_kp = cv.drawKeypoints(img, keypoints, img_kp)
+        img_kp = cv.drawKeypoints(img, keypoints, img_kp, flags=cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        images_kp.append(img_kp)
+
         img = cv.resize(src=full_img, dsize=None, fx=seam_scale, fy=seam_scale, interpolation=cv.INTER_LINEAR_EXACT)
         images.append(img)
+
+    # show keypoints
+    for i in range(0, len(images_kp)):
+        cv.imshow('Keypoints {}'.format(i), images_kp[i])
+    cv.waitKey(0)
+    cv.destroyAllWindows()
 
     matcher = cv.detail_BestOf2NearestMatcher(try_cuda, match_conf)
     p = matcher.apply2(features)
@@ -220,7 +234,7 @@ def save_configs(ret_val, output_folder):
     corners = ret_val['corners']
     sizes = ret_val['sizes']
 
-    with open('{}cameraConfigs.cfg'.format(output_folder), 'w') as f:
+    with open('{}//cameraConfigs.cfg'.format(output_folder), 'w') as f:
         for i in range(0, len(corners)):
             f.write('{}\n'.format(cameras[i].aspect))
             f.write('{}\n'.format(cameras[i].focal))
@@ -236,7 +250,7 @@ def save_configs(ret_val, output_folder):
             f.write('{}\n'.format(sizes[i][0]))
             f.write('{}\n'.format(sizes[i][1]))
 
-    mask_file = cv.FileStorage('{}masks.yml'.format(output_folder), cv.FILE_STORAGE_WRITE)
+    mask_file = cv.FileStorage('{}//masks.yml'.format(output_folder), cv.FILE_STORAGE_WRITE)
     for i in range(0, len(masks_warped)):
         mask = cv.UMat.get(masks_warped[i])
         mask_file.write(name='mask{}'.format(i), val=mask)
@@ -289,25 +303,18 @@ def undistort(all_imgs, mtxs, dists):
     return undistorted_imgs
 
 
-
 def main():
-    # TODO: file input selections
-    save_path = 'C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/'
-    csv_path = 'C:\\Users\\duanr\\Desktop\\Stitching\\calibration.csv'
-    im1 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/1.png")
-    im2 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/2.png")
-    im3 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/3.png")
-    im4 = cv.imread("C:/Users/duanr/Desktop/Video Stitching/Oct 23 Configuration/4.png")
-    # im1 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\1.png")
-    # im2 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\2.png")
-    # im3 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\3.png")
-    # im4 = cv.imread("C:\\Users\\richa\\OneDrive - University of Waterloo\\Desktop\\NRC\\Python\\OEB-Camera-Calibration\\Oct 21 Test\\Original Images\\4.png")
+    save_path = filedialog.askdirectory(title='Choose output location:')
+    csv_path = filedialog.askopenfilename(title='Select calibration CSV:', initialfile='calibration.csv', filetypes=(('CSV','*.csv'),('All files','*.*')))
+    all_imgs_paths = filedialog.askopenfilenames(title='Select images to stitch:')
 
-    all_imgs = [im1, im2, im3, im4]
+    all_imgs = []
+    for path in all_imgs_paths:
+        all_imgs.append(cv.imread(path))
+
     num_cams = len(all_imgs)
     mtxs, dists = read_calibration(csv_path, num_cams)
     all_imgs = undistort(all_imgs, mtxs, dists)
-
     stitching_params = generate_stitching_params(all_imgs)
     save_configs(stitching_params, save_path)
 

@@ -8,9 +8,7 @@ import os
 IMAGE_EXTS = ['jpg', 'jpeg', 'png'] # valid image extensions
 # -----READ CSV-----
 NUM_CAMS = 4
-# csv_path = 'C:/Users/duanr/Desktop/Stitching/calibration.csv'
-csv_path = filedialog.askopenfilename(title='Select Camera Calibration CSV', initialdir='C:/Users/duanr/Desktop/Stitching/')
-# csv_path = filedialog.askopenfilename(title='Select Camera Calibration CSV')
+csv_path = filedialog.askopenfilename(title='Select Camera Calibration CSV', initialfile='calibration.csv')
 mtxs = []
 dists = []
 
@@ -36,8 +34,7 @@ with open(csv_path, newline='') as csv_file:
             pass
 # --------------------------------
 
-folder_path = filedialog.askdirectory(title='Select Distorted Images Folder', initialdir='C:/Users/duanr/Desktop/Stitching/')
-# folder_path = filedialog.askdirectory(title='Select Distorted Images Folder')
+folder_path = filedialog.askdirectory(title='Select original images folder:')
 if folder_path == '':
     print('No folder selected!')
     quit()
@@ -78,7 +75,7 @@ for img_path in images: # assuming images are in the same order as the camera or
     # cv.waitKey(0)
     count += 1
 
-command += ' --warp affine --matcher affine --estimator affine --ba affine --wave_correct no --output_folder \"{}/\"'.format(os.path.dirname(folder_path))
-os.system(command)
+# command += ' --warp affine --matcher affine --estimator affine --ba affine --wave_correct no --output_folder \"{}/\"'.format(os.path.dirname(folder_path))
+# os.system(command)
 # parameters for stitching_detailed:
-# --warp affine --matcher affine --estimator affine --ba affine --wave_correct no
+# --warp affine --matcher affine --estimator affine --ba affine --wave_correct no --ba_refine_mask xxx_x --features sift --match_conf 0.65 --conf_thresh 0.5

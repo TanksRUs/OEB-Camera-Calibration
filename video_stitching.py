@@ -1,6 +1,7 @@
 import cv2 as cv
 import numpy as np
 from collections import OrderedDict
+from tkinter import filedialog
 
 
 def read_configs(cameraConfigs_path, masks_path):
@@ -24,8 +25,8 @@ def read_configs(cameraConfigs_path, masks_path):
             R = np.array(R)
             t = [[float(f.readline())], [float(f.readline())], [float(f.readline())]]
             t = np.array(t)
-            corners.append(float(f.readline()), float(f.readline()))
-            sizes.append = (float(f.readline()), float(f.readline()))
+            corners.append((float(f.readline()), float(f.readline())))
+            sizes.append((float(f.readline()), float(f.readline())))
 
             camera = cv.detail.CameraParams()
             camera.aspect = aspect
@@ -68,15 +69,15 @@ def stitch_frame(all_imgs, camera_configs):
     blend_strength = 5
     blend_type = 'multiband'
     compose_megapix = -1
-    conf_thresh = 1.0
+    conf_thresh = 0.5
     estimator = 'homography'
     expos_comp = 'gain_blocks'
     expos_comp_block_size = 32
     expos_comp_nr_feeds = 1
     expos_comp_type = cv.detail.ExposureCompensator_GAIN_BLOCKS
     features = 'orb'
-    finder = cv.ORB.create()
-    match_conf = None
+    finder = cv.SIFT_create()
+    match_conf = 0.65
     matcher_type = 'homography'
     range_width = -1
     seam = 'dp_color'
@@ -91,23 +92,23 @@ def stitch_frame(all_imgs, camera_configs):
     for img in all_imgs:
         sizes.append((img.shape[1], img.shape[0]))
 
-    is_work_scale_set = False
-    is_seam_scale_set = False
-    is_compose_scale_set = False
-    for full_img in all_imgs:
-        # full_img_sizes.append((full_img.shape[1], full_img.shape[0]))
-        if is_work_scale_set is False:
-            work_scale = min(1.0, np.sqrt(work_megapix * 1e6 / (full_img.shape[0] * full_img.shape[1])))
-            is_work_scale_set = True
-        img = cv.resize(src=full_img, dsize=None, fx=work_scale, fy=work_scale, interpolation=cv.INTER_LINEAR_EXACT)
-        if is_seam_scale_set is False:
-            seam_scale = min(1.0, np.sqrt(seam_megapix * 1e6 / (full_img.shape[0] * full_img.shape[1])))
-            seam_work_aspect = seam_scale / work_scale
-            is_seam_scale_set = True
-        # img_feat = cv.detail.computeImageFeatures2(finder, img)
-        # features.append(img_feat)
-        img = cv.resize(src=full_img, dsize=None, fx=seam_scale, fy=seam_scale, interpolation=cv.INTER_LINEAR_EXACT)
-        # images.append(img)
+    # is_work_scale_set = False
+    # is_seam_scale_set = False
+    # is_compose_scale_set = False
+    # for full_img in all_imgs:
+    #     # full_img_sizes.append((full_img.shape[1], full_img.shape[0]))
+    #     if is_work_scale_set is False:
+    #         work_scale = min(1.0, np.sqrt(work_megapix * 1e6 / (full_img.shape[0] * full_img.shape[1])))
+    #         is_work_scale_set = True
+    #     img = cv.resize(src=full_img, dsize=None, fx=work_scale, fy=work_scale, interpolation=cv.INTER_LINEAR_EXACT)
+    #     if is_seam_scale_set is False:
+    #         seam_scale = min(1.0, np.sqrt(seam_megapix * 1e6 / (full_img.shape[0] * full_img.shape[1])))
+    #         seam_work_aspect = seam_scale / work_scale
+    #         is_seam_scale_set = True
+    #     # img_feat = cv.detail.computeImageFeatures2(finder, img)
+    #     # features.append(img_feat)
+    #     img = cv.resize(src=full_img, dsize=None, fx=seam_scale, fy=seam_scale, interpolation=cv.INTER_LINEAR_EXACT)
+    #     # images.append(img)
 
     focals = []
     for cam in cameras:
@@ -118,7 +119,7 @@ def stitch_frame(all_imgs, camera_configs):
     else:
         warped_image_scale = (focals[len(focals) // 2] + focals[len(focals) // 2 - 1]) / 2
 
-    for i in range(0, all_imgs):
+    for i in range(0, len(all_imgs)):
         img = all_imgs[i]
         K = cameras[i].K().astype(np.float32)
         mask_warped = masks[i]
@@ -182,16 +183,11 @@ def read_videos(all_vids, camera_configs, output_path, fps, vid_size):
 
 
 def main():
-    cameraConfigs_path = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\cameraConfigs.cfg'
-    masks_path = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\masks.yml'
-    vid1 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\Videos\\psv_lattice_final_run1_cam1.avi'
-    vid2 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\Videos\\psv_lattice_final_run1_cam2.avi'
-    vid3 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\Videos\\psv_lattice_final_run1_cam3.avi'
-    vid4 = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\Videos\\psv_lattice_final_run1_cam4.avi'
-    all_vids = [vid1, vid2, vid3, vid4]
+    cameraConfigs_path = filedialog.askopenfilename(title='Select camera configs:', initialfile='cameraConfigs.cfg', filetypes=(('cfg','*.cfg'),('All files','*.*')))
+    masks_path = filedialog.askopenfilename(title='Select masks:', initialfile='masks.yml', filetypes=(('yml','*.yml'),('All files','*.*')))
+    all_vids = filedialog.askopenfilenames(title='Select videos to stitch:')
     camera_configs = read_configs(cameraConfigs_path, masks_path)
-
-    output_vid = 'C:\\Users\\duanr\\Desktop\\Video Stitching\\Oct 23 Configuration\\Videos\\stitched.avi'
+    output_vid = filedialog.asksaveasfilename(title='Save stitched video:', initialfile='stitched.avi', filetypes=(('avi','*.avi'),('All files','*.*')))
     fps = 30
     vid_size = (720, 1280)
     read_videos(all_vids, camera_configs, output_vid, fps, vid_size)
