@@ -46,28 +46,33 @@ for fname in images:
         imgpoints.append(corners)
         # Draw and display the corners
         corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-        cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners2, ret)
-        cv.imshow('img', img)
-        cv.waitKey(0)
+        # cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners2, ret)
+        # cv.imshow('img', img)
+        # cv.waitKey(0)
 # cv.destroyAllWindows()
 
+objpoints_expand = np.expand_dims(np.asarray(objpoints), -2)
+imgpoints_expand = np.expand_dims(np.asarray(imgpoints), -2)
 N_OK = len(objpoints)
 var_K = np.zeros((3, 3))
 var_D = np.zeros((4, 1))
 rvecs = [np.zeros((1, 1, 3), dtype=np.float64) for i in range(N_OK)]
 tvecs = [np.zeros((1, 1, 3), dtype=np.float64) for i in range(N_OK)]
-ret, _, _, _, _ = \
+rvecs_expand = np.expand_dims(np.asarray(rvecs), -2)
+tvecs_expand = np.expand_dims(np.asarray(tvecs), -2)
+# TODO: maybe try https://github.com/Ikomia-dev/FishEyeModel
+ret, var_K, var_D, rvecs, tvecs = \
     cv.fisheye.calibrate(
-        objpoints,
-        imgpoints,
+        objpoints_expand,
+        imgpoints_expand,
         gray.shape[::-1],
         var_K,
         var_D,
-        rvecs,
-        tvecs,
+        rvecs_expand,
+        tvecs_expand,
         calibration_flags,
         (cv.TERM_CRITERIA_EPS+cv.TERM_CRITERIA_MAX_ITER, 30, 1e-6)
-    )
+    ) #cv2.error: OpenCV(4.6.0) D:\a\opencv-python\opencv-python\opencv\modules\calib3d\src\fisheye.cpp:753: error: (-215:Assertion failed) objectPoints.type() == CV_32FC3 || objectPoints.type() == CV_64FC3 in function 'cv::fisheye::calibrate'
 with open(CSV_PATH, 'a', newline='') as f:
     writer = csv.writer(f)
     f.write(img_path.rsplit('/',1)[1] + '\n') # name of dataset/calibration parameters
