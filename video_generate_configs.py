@@ -63,7 +63,7 @@ def generate_stitching_params(all_imgs): # pass in list of images
 
     # show keypoints
     for i in range(0, len(images_kp)):
-        cv.imshow('Keypoints {}'.format(i), images_kp[i])
+        cv.imshow('Keypoints {} (Press any key to continue)'.format(i), images_kp[i])
     cv.waitKey(0)
     cv.destroyAllWindows()
 
@@ -154,6 +154,7 @@ def generate_stitching_params(all_imgs): # pass in list of images
 
     seam_finder = cv.detail_DpSeamFinder('COLOR')
     masks_warped = seam_finder.find(images_warped_f, corners, masks_warped)
+    masks_warped_save = []
     compose_scale = 1
     corners = []
     sizes = []
@@ -193,6 +194,7 @@ def generate_stitching_params(all_imgs): # pass in list of images
         dilated_mask = cv.dilate(masks_warped[idx], None)
         seam_mask = cv.resize(dilated_mask, (mask_warped.shape[1], mask_warped.shape[0]), 0, 0, cv.INTER_LINEAR_EXACT)
         mask_warped = cv.bitwise_and(seam_mask, mask_warped)
+        masks_warped_save.append(mask_warped)
 
         if blender is None: # no timelapse
             blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
@@ -215,13 +217,13 @@ def generate_stitching_params(all_imgs): # pass in list of images
     zoom_x = 600.0 / result.shape[1]
     dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
     dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
-    cv.imshow('Stitched Image', dst)
+    cv.imshow('Stitched Image (Press any key to continue)', dst)
     cv.waitKey()
     cv.destroyAllWindows()
 
     ret_val = OrderedDict()
     ret_val['cameras'] = cameras
-    ret_val['masks_warped'] = masks_warped
+    ret_val['masks_warped'] = masks_warped_save
     ret_val['corners'] = corners
     ret_val['sizes'] = sizes
 
