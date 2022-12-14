@@ -156,6 +156,7 @@ def stitch_frame(all_imgs, camera_configs):
     result = None
     result_mask = None
     result, result_mask = blender.blend(result, result_mask)
+    #cv2.error: OpenCV(4.6.0) D:\a\opencv-python\opencv-python\opencv\modules\core\src\ocl.cpp:3977: error: (-220:Unknown error code -220) OpenCL error Unknown OpenCL error (-9999) during call: clSetEventCallback(asyncEvent, CL_COMPLETE, oclCleanupCallback, this) in function 'cv::ocl::Kernel::Impl::run'
     zoom_x = 600.0 / result.shape[1]
     dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
     dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
@@ -165,16 +166,15 @@ def stitch_frame(all_imgs, camera_configs):
 
 def read_videos(all_vids, camera_configs, output_path, fps, vid_size, mtxs, dists):
     caps = []
-    # stitched_frames = []
-
-    # Define the codec and create VideoWriter object
-    fourcc = cv.VideoWriter_fourcc(*'DIVX')
-    out = cv.VideoWriter(output_path, fourcc, fps, vid_size)
+    stitched_frames = []
 
     for vid_path in all_vids:
         caps.append(cv.VideoCapture(vid_path))
 
+    frame_count = 0
+
     while caps[0].isOpened():
+        print('Processing frame {}'.format(frame_count))
         ret = []
         frames = []
         for cap in caps: # read through all videos
@@ -187,10 +187,20 @@ def read_videos(all_vids, camera_configs, output_path, fps, vid_size, mtxs, dist
             break
 
         frames = undistort(frames, mtxs, dists)
-        out.write(stitch_frame(frames, camera_configs))
+        stitched = stitch_frame(frames, camera_configs) #TODO: figure out why broken
+        stitched_frames.append(stitched)
+        # stitched_frames.append(frames[0])
+        frame_count += 1
 
     for cap in caps:
         cap.release()
+
+    # Define the codec and create VideoWriter object
+    fourcc = cv.VideoWriter_fourcc(*'DIVX')
+    vid_size = (stitched_frames[0].shape[1], stitched_frames[0].shape[0])
+    out = cv.VideoWriter(output_path, fourcc, fps, vid_size)
+    for frame in stitched_frames:
+        out.write(frame)
     out.release()
 
     # return stitched_frames
