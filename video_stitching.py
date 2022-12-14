@@ -56,7 +56,7 @@ def read_configs(cameraConfigs_path, masks_path):
     return ret_val
 
 
-def stitch_frame(all_imgs, camera_configs):
+def first_stitch(all_imgs, camera_configs):
     # ----- stitching parameters -----
     ba = cv.detail_BundleAdjusterReproj()  # --ba reproj
     ba_refine_mask = 'xxx_x'  # --ba_refine_mask xxx_x
@@ -161,10 +161,60 @@ def stitch_frame(all_imgs, camera_configs):
     dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
     dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
 
+    stitch_configs = dict()
+    stitch_configs['warper'] = warper
+    stitch_configs['blend_strength'] = blend_strength
+    stitch_configs['blend_type'] = blend_type
+
+    return dst, stitch_configs
+
+
+def stitch_frame(all_imgs, camera_configs, stitch_configs):
+    cameras = camera_configs['cameras']
+    corners = camera_configs['corners']
+    sizes = camera_configs['sizes']
+    masks_warped = camera_configs['masks']
+
+    warper = stitch_configs['warper']
+    blend_strength = stitch_configs['blend_strength']
+    blend_type = stitch_configs['blend_type']
+
+    blender = None
+
+    for idx in range(0, len(all_imgs)):
+        img = all_imgs[idx]
+        K = cameras[idx].K().astype(np.float32)
+        R = cameras[idx].R.astype(np.float32)
+        corner, image_warped = warper.warp(img, K, R, cv.INTER_LINEAR, cv.BORDER_REFLECT)
+        image_warped_s = image_warped.astype(np.int16)
+        mask_warped = cv.UMat(masks_warped[idx])
+
+        if blender is None: # no timelapse
+            blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
+            dst_sz = cv.detail.resultRoi(corners=corners, sizes=sizes)
+            blend_width = np.sqrt(dst_sz[2] * dst_sz[3]) * blend_strength / 100
+            if blend_width < 1:
+                blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
+            elif blend_type == "multiband":
+                blender = cv.detail_MultiBandBlender()
+                blender.setNumBands((np.log(blend_width) / np.log(2.) - 1.).astype(np.int32))
+            elif blend_type == "feather":
+                blender = cv.detail_FeatherBlender()
+                blender.setSharpness(1. / blend_width)
+            blender.prepare(dst_sz)
+        blender.feed(cv.UMat(image_warped_s), mask_warped, corners[idx])
+
+    result = None
+    result_mask = None
+    result, result_mask = blender.blend(result, result_mask)
+    zoom_x = 600.0 / result.shape[1]
+    dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
+    dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
+
     return dst
 
 
-def read_videos(all_vids, camera_configs, output_path, fps, vid_size, mtxs, dists):
+def do_everything(all_vids, camera_configs, output_path, fps, vid_size, mtxs, dists):
     caps = []
     stitched_frames = []
 
@@ -172,6 +222,7 @@ def read_videos(all_vids, camera_configs, output_path, fps, vid_size, mtxs, dist
         caps.append(cv.VideoCapture(vid_path))
 
     frame_count = 0
+    stitch_configs = None
 
     while caps[0].isOpened():
         print('Processing frame {}'.format(frame_count))
@@ -183,13 +234,17 @@ def read_videos(all_vids, camera_configs, output_path, fps, vid_size, mtxs, dist
             frames.append(frame_temp)
 
         if not all(ret):
-            print("Can't receive frame (stream end?). Exiting ...")
+            print("Reached end of stream. Exiting ...")
             break
 
         frames = undistort(frames, mtxs, dists)
-        stitched = stitch_frame(frames, camera_configs) #TODO: figure out why broken
+
+        if stitch_configs is None:
+            stitched, stitch_configs = first_stitch(frames, camera_configs)
+        else:
+            stitched = stitch_frame(frames, camera_configs, stitch_configs) #TODO: figure out why broken
+
         stitched_frames.append(stitched)
-        # stitched_frames.append(frames[0])
         frame_count += 1
 
     for cap in caps:
@@ -265,7 +320,7 @@ def main():
     fps = 30
     vid_size = (720, 1280)
 
-    read_videos(all_vids, camera_configs, output_vid, fps, vid_size, mtxs, dists)
+    do_everything(all_vids, camera_configs, output_vid, fps, vid_size, mtxs, dists)
 
 
 if __name__ == '__main__':
