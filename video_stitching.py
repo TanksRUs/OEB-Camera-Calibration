@@ -56,6 +56,7 @@ def read_configs(cameraConfigs_path, masks_path):
     return ret_val
 
 
+# modify stitching parameters here
 def first_stitch(all_imgs, camera_configs):
     # ----- stitching parameters -----
     ba = cv.detail_BundleAdjusterReproj()  # --ba reproj
@@ -112,7 +113,7 @@ def first_stitch(all_imgs, camera_configs):
             compose_work_aspect = compose_scale / work_scale
 
             # calculate warped_image_scale
-            focals = [] # the focals saved have been multiplied by compose_work_aspect
+            focals = []  # the focals saved have been multiplied by compose_work_aspect
             for cam in cameras:
                 focals.append(cam.focal / compose_work_aspect)
             focals.sort()
@@ -132,13 +133,14 @@ def first_stitch(all_imgs, camera_configs):
         _img_size = (img.shape[1], img.shape[0])
         K = cameras[idx].K().astype(np.float32)
         R = cameras[idx].R.astype(np.float32)
-        corner, image_warped = warper.warp(img, K, R, cv.INTER_LINEAR, cv.BORDER_REFLECT) # TODO: seems like issue here?
-# OpenCV(4.6.0) Error: Unknown error code -220 (OpenCL error CL_OUT_OF_RESOURCES (-5) during call: clEnqueueMapBuffer(handle=000001B9D888D3C0, sz=12) => 0000000000000000) in cv::ocl::OpenCLAllocator::deallocate_, file D:\a\opencv-python\opencv-python\opencv\modules\core\src\ocl.cpp, line 5761
-# OpenCL error CL_OUT_OF_RESOURCES (-5) during call: clEnqueueNDRangeKernel('buildWarpPlaneMaps', dims=2, globalsize=1024x664x1, localsize=NULL) sync=true
+        corner, image_warped = warper.warp(img, K, R, cv.INTER_LINEAR,
+                                           cv.BORDER_REFLECT)  # TODO: seems like issue here?
+        # OpenCV(4.6.0) Error: Unknown error code -220 (OpenCL error CL_OUT_OF_RESOURCES (-5) during call: clEnqueueMapBuffer(handle=000001B9D888D3C0, sz=12) => 0000000000000000) in cv::ocl::OpenCLAllocator::deallocate_, file D:\a\opencv-python\opencv-python\opencv\modules\core\src\ocl.cpp, line 5761
+        # OpenCL error CL_OUT_OF_RESOURCES (-5) during call: clEnqueueNDRangeKernel('buildWarpPlaneMaps', dims=2, globalsize=1024x664x1, localsize=NULL) sync=true
         image_warped_s = image_warped.astype(np.int16)
         mask_warped = cv.UMat(masks_warped[idx])
 
-        if blender is None: # no timelapse
+        if blender is None:  # no timelapse
             blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
             dst_sz = cv.detail.resultRoi(corners=corners, sizes=sizes)
             blend_width = np.sqrt(dst_sz[2] * dst_sz[3]) * blend_strength / 100
@@ -156,7 +158,7 @@ def first_stitch(all_imgs, camera_configs):
     result = None
     result_mask = None
     result, result_mask = blender.blend(result, result_mask)
-    #cv2.error: OpenCV(4.6.0) D:\a\opencv-python\opencv-python\opencv\modules\core\src\ocl.cpp:3977: error: (-220:Unknown error code -220) OpenCL error Unknown OpenCL error (-9999) during call: clSetEventCallback(asyncEvent, CL_COMPLETE, oclCleanupCallback, this) in function 'cv::ocl::Kernel::Impl::run'
+    # cv2.error: OpenCV(4.6.0) D:\a\opencv-python\opencv-python\opencv\modules\core\src\ocl.cpp:3977: error: (-220:Unknown error code -220) OpenCL error Unknown OpenCL error (-9999) during call: clSetEventCallback(asyncEvent, CL_COMPLETE, oclCleanupCallback, this) in function 'cv::ocl::Kernel::Impl::run'
     zoom_x = 600.0 / result.shape[1]
     dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
     dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
@@ -169,6 +171,7 @@ def first_stitch(all_imgs, camera_configs):
     return dst, stitch_configs
 
 
+# more or less the bare basics required to stitch the images
 def stitch_frame(all_imgs, camera_configs, stitch_configs):
     cameras = camera_configs['cameras']
     corners = camera_configs['corners']
@@ -189,7 +192,7 @@ def stitch_frame(all_imgs, camera_configs, stitch_configs):
         image_warped_s = image_warped.astype(np.int16)
         mask_warped = cv.UMat(masks_warped[idx])
 
-        if blender is None: # no timelapse
+        if blender is None:  # no timelapse
             blender = cv.detail.Blender_createDefault(cv.detail.Blender_NO)
             dst_sz = cv.detail.resultRoi(corners=corners, sizes=sizes)
             blend_width = np.sqrt(dst_sz[2] * dst_sz[3]) * blend_strength / 100
@@ -228,7 +231,7 @@ def do_everything(all_vids, camera_configs, output_path, fps, vid_size, mtxs, di
         print('Processing frame {}'.format(frame_count))
         ret = []
         frames = []
-        for cap in caps: # read through all videos
+        for cap in caps:  # read through all videos
             ret_temp, frame_temp = cap.read()
             ret.append(ret_temp)
             frames.append(frame_temp)
@@ -242,7 +245,7 @@ def do_everything(all_vids, camera_configs, output_path, fps, vid_size, mtxs, di
         if stitch_configs is None:
             stitched, stitch_configs = first_stitch(frames, camera_configs)
         else:
-            stitched = stitch_frame(frames, camera_configs, stitch_configs) #TODO: figure out why broken
+            stitched = stitch_frame(frames, camera_configs, stitch_configs)  # TODO: figure out why broken
 
         stitched_frames.append(stitched)
         frame_count += 1
@@ -307,8 +310,10 @@ def undistort(all_imgs, mtxs, dists):
 def main():
     csv_path = filedialog.askopenfilename(title='Select calibration CSV:', initialfile='calibration.csv',
                                           filetypes=(('CSV', '*.csv'), ('All files', '*.*')))
-    cameraConfigs_path = filedialog.askopenfilename(title='Select camera configs:', initialfile='cameraConfigs.cfg', filetypes=(('cfg','*.cfg'),('All files','*.*')))
-    masks_path = filedialog.askopenfilename(title='Select masks:', initialfile='masks.yml', filetypes=(('yml','*.yml'),('All files','*.*')))
+    cameraConfigs_path = filedialog.askopenfilename(title='Select camera configs:', initialfile='cameraConfigs.cfg',
+                                                    filetypes=(('cfg', '*.cfg'), ('All files', '*.*')))
+    masks_path = filedialog.askopenfilename(title='Select masks:', initialfile='masks.yml',
+                                            filetypes=(('yml', '*.yml'), ('All files', '*.*')))
     all_vids = filedialog.askopenfilenames(title='Select videos to stitch:')
     output_vid = filedialog.asksaveasfilename(title='Save stitched video:', initialfile='stitched.avi',
                                               filetypes=(('avi', '*.avi'), ('All files', '*.*')))
