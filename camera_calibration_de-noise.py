@@ -7,8 +7,8 @@ import csv
 # ------CHECKERBOARD PROPERTIES------
 ROWS = 10 - 1 # start indexing at 0
 COLUMNS = 15 - 1
-GRID_SIZE = 1 # in [mm], 1 for unknown/dimensionless (NOTE: literally does not affect calibration parameters)
-RESOLUTION_SCALE = 1 # to divide focal lengths/principal points by
+GRID_SIZE = 1 # in [mm], 1 for unknown/dimensionless
+NUM_SAMPLES = 4 # for de-noising
 # -----------------------------------
 IMAGE_EXTS = ['jpg', 'jpeg', 'png'] # valid image extensions
 CSV_PATH = filedialog.asksaveasfilename(title='Select or save calibration CSV:', initialfile='calibration.csv', filetypes=(('CSV','*.csv'),('All files','*.*')))
@@ -33,8 +33,20 @@ for extension in IMAGE_EXTS:
     if images: # if there are files with the specified extension
         break
 
-for fname in images:
-    img = cv.imread(fname)
+num_views = int(len(images) / NUM_SAMPLES)
+
+for i in range(0, num_views):
+    img = None
+
+    for sample in range (0, NUM_SAMPLES): # average out samples to remove noise
+        fname = images[i * NUM_SAMPLES + sample]
+        average = cv.imread(fname)
+        if img is None:
+            img = average / NUM_SAMPLES
+        else:
+            img += average / NUM_SAMPLES
+
+    img = img.astype('uint8')
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     # Find the chess board corners
     ret, corners = cv.findChessboardCorners(gray, (COLUMNS, ROWS), None)
@@ -45,9 +57,9 @@ for fname in images:
         imgpoints.append(corners)
         # Draw and display the corners
         corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-        # cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners2, ret)
-        # cv.imshow('Corners Detected (Press any key to continue)', img)
-        # cv.waitKey(0)
+        cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners2, ret)
+        cv.imshow('Corners Detected (Press any key to continue)', img)
+        cv.waitKey(0)
 # cv.destroyAllWindows()
 
 ret, mtx, dist, rvecs, tvecs  = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
@@ -60,15 +72,13 @@ x, y, w, h = roi
 dst = cv.resize(dst[y:y+h, x:x+w], (1024, 768))
 cv.imshow('Undistorted Image (Press any key to continue)', dst)
 cv.waitKey(0)
-scaled_mtx = mtx / RESOLUTION_SCALE
-scaled_mtx[2, 2] = 1.0
 
 with open(CSV_PATH, 'a', newline='') as f:
     writer = csv.writer(f)
     f.write(img_path.rsplit('/',1)[1] + '\n') # name of dataset/calibration parameters
     f.write('RMS Re-projection Error:\n{}\n'.format(ret))
     f.write('Camera Matrix:\n')
-    writer.writerows(scaled_mtx)
+    writer.writerows(mtx)
     f.write('Distortion Coefficients:\nk1,k2,p1,p2,k3\n')
     writer.writerow(dist[0])
     f.write('\n')
