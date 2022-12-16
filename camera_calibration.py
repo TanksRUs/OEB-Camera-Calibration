@@ -11,7 +11,7 @@ GRID_SIZE = 1 # in [mm], 1 for unknown/dimensionless (NOTE: literally does not a
 RESOLUTION_SCALE = 1 # to divide focal lengths/principal points by
 # -----------------------------------
 IMAGE_EXTS = ['jpg', 'jpeg', 'png'] # valid image extensions
-CSV_PATH = filedialog.asksaveasfilename(title='Select or save calibration CSV:', initialfile='calibration.csv', filetypes=(('CSV','*.csv'),('All files','*.*')))
+csv_path = filedialog.asksaveasfilename(title='Select or save calibration CSV:', initialfile='calibration.csv', filetypes=(('CSV', '*.csv'), ('All files', '*.*')))
 
 img_path = filedialog.askdirectory(title='Select images folder:')
 if img_path == '':
@@ -19,6 +19,7 @@ if img_path == '':
     quit()
 
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001) # (COUNT, MAX_ITER, EPS)
+chessboard_flags = cv.CALIB_CB_ADAPTIVE_THRESH + cv.CALIB_CB_FAST_CHECK + cv.CALIB_CB_NORMALIZE_IMAGE
 
 objp = np.zeros((ROWS * COLUMNS, 3), np.float32)
 objp[:, :2] = np.mgrid[0:COLUMNS, 0:ROWS].T.reshape(-1, 2) # point locations (cur. unknown dims)
@@ -37,15 +38,15 @@ for fname in images:
     img = cv.imread(fname)
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     # Find the chess board corners
-    ret, corners = cv.findChessboardCorners(gray, (COLUMNS, ROWS), None)
+    ret, corners = cv.findChessboardCorners(gray, (COLUMNS, ROWS), chessboard_flags)
     # If found, add object points, image points (after refining them)
     print('{}, {}'.format(ret, fname))
     if ret == True:
         objpoints.append(objp)
+        corners = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         imgpoints.append(corners)
         # Draw and display the corners
-        corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-        # cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners2, ret)
+        # cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners, ret)
         # cv.imshow('Corners Detected (Press any key to continue)', img)
         # cv.waitKey(0)
 # cv.destroyAllWindows()
@@ -63,7 +64,7 @@ cv.waitKey(0)
 scaled_mtx = mtx / RESOLUTION_SCALE
 scaled_mtx[2, 2] = 1.0
 
-with open(CSV_PATH, 'a', newline='') as f:
+with open(csv_path, 'a', newline='') as f:
     writer = csv.writer(f)
     f.write(img_path.rsplit('/',1)[1] + '\n') # name of dataset/calibration parameters
     f.write('RMS Re-projection Error:\n{}\n'.format(ret))
