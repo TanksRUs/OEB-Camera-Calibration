@@ -78,7 +78,7 @@ with open(csv_path, 'a', newline='') as f:
     f.write('Camera Matrix:\n')
     writer.writerows(var_K)
     f.write('Distortion Coefficients:\nk1,k2,k3,k4\n')
-    writer.writerow(var_D[0])
+    writer.writerow(var_D.reshape(1,4)[0])
     f.write('\n')
 
 print(ret)

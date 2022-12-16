@@ -9,25 +9,25 @@ IMAGE_EXTS = ['jpg', 'jpeg', 'png'] # valid image extensions
 # -----READ CSV-----
 NUM_CAMS = 4
 csv_path = filedialog.askopenfilename(title='Select Camera Calibration CSV', initialfile='calibration.csv')
-mtxs = []
-dists = []
+var_Ks = []
+var_Ds = []
 
 with open(csv_path, newline='') as csv_file:
     reader = csv.reader(csv_file)
     for i in range(0, NUM_CAMS):
-        for header in range(0, 4):  # skips header rows
+        for header in range(0, 2):  # skips header rows
             next(reader)
-        mtx = []
-        mtx.append([float(x) for x in next(reader)])
-        mtx.append([float(x) for x in next(reader)])
-        mtx.append([float(x) for x in next(reader)])
-        mtx = np.array(mtx)
-        mtxs.append(mtx)
+        var_K = []
+        var_K.append([float(x) for x in next(reader)])
+        var_K.append([float(x) for x in next(reader)])
+        var_K.append([float(x) for x in next(reader)])
+        var_K = np.array(var_K)
+        var_Ks.append(var_K)
         next(reader)
         next(reader)
-        dist = [[float(x) for x in next(reader)]]
-        dist = np.array(dist)
-        dists.append(dist)
+        var_D = [[float(x) for x in next(reader)]]
+        var_D = np.array(var_D)
+        var_Ds.append(var_D)
         try:  # in case there's no line return at the end of the file
             next(reader)
         except StopIteration:
@@ -53,15 +53,15 @@ command = 'stitching_detailed.py'
 for img_path in images: # assuming images are in the same order as the camera order
     print(img_path)
     camera = count % NUM_CAMS
-    mtx = mtxs[camera]
-    dist = dists[camera]
+    var_K = var_Ks[camera]
+    var_D = var_Ds[camera]
     img_name = os.path.splitext(os.path.basename(img_path))[0]
     new_path = '{}/{}_undist.png'.format(output_folder, img_name)
 
     img = cv.imread(img_path)
     h, w = img.shape[:2]
-    newcameramtx, roi = cv.getOptimalNewCameraMatrix(mtx, dist, (w,h), 1, (w,h))
-    dst = cv.undistort(img, mtx, dist, None, newcameramtx)
+    newcameramtx, roi = cv.getOptimalNewCameraMatrix(var_K, var_D, (w, h), 1, (w, h))
+    dst = cv.fisheye.undistortImage(img, var_K, var_D)
     x, y, w, h = roi
     dst = dst[y:y+h, x:x+w]
 
