@@ -19,7 +19,7 @@ if img_path == '':
     quit()
 
 criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001) # (COUNT, MAX_ITER, EPS)
-calibration_flags = cv.fisheye.CALIB_RECOMPUTE_EXTRINSIC + cv.fisheye.CALIB_FIX_SKEW # removed cv.fisheye.CALIB_CHECK_COND
+calibration_flags = cv.fisheye.CALIB_RECOMPUTE_EXTRINSIC + cv.fisheye.CALIB_CHECK_COND + cv.fisheye.CALIB_FIX_SKEW
 chessboard_flags = cv.CALIB_CB_ADAPTIVE_THRESH + cv.CALIB_CB_FAST_CHECK + cv.CALIB_CB_NORMALIZE_IMAGE
 
 objp = np.zeros((1, ROWS * COLUMNS, 3), np.float32)
@@ -44,12 +44,12 @@ for fname in images:
     print('{}, {}'.format(ret, fname))
     if ret == True:
         objpoints.append(objp)
-        corners = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        cv.cornerSubPix(gray, corners, (3, 3), (-1, -1), criteria)
         imgpoints.append(corners)
         # Draw and display the corners
-        # cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners, ret)
-        # cv.imshow('Chessboard Corners (Press any key to continue)', img)
-        # cv.waitKey(0)
+#         cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners, ret)
+#         cv.imshow('Chessboard Corners (Press any key to continue)', img)
+#         cv.waitKey(0)
 # cv.destroyAllWindows()
 
 N_OK = len(objpoints)
@@ -58,7 +58,10 @@ var_D = np.zeros((4, 1))
 rvecs = [np.zeros((1, 1, 3), dtype=np.float64) for i in range(N_OK)]
 tvecs = [np.zeros((1, 1, 3), dtype=np.float64) for i in range(N_OK)]
 
-ret, var_K, var_D, rvecs, tvecs = \
+# NOTE: calibration can fail even if checkerboard detection was successful
+# due to CALIB_CHECK_COND --- error message indicates which image is the issue, see:
+# https://github.com/opencv/opencv/commit/5ca7dcc6e74b9c6068b8de1f49f289d6bc6b5a0b
+ret, _, _, _, _ = \
     cv.fisheye.calibrate(
         objpoints,
         imgpoints,
@@ -70,6 +73,14 @@ ret, var_K, var_D, rvecs, tvecs = \
         calibration_flags,
         criteria
     )
+
+# show undistorted result
+h, w = img.shape[:2]
+map1, map2 = cv.fisheye.initUndistortRectifyMap(var_K, var_D, np.eye(3), var_K, (w, h), cv.CV_16SC2)
+dst = cv.remap(img, map1, map2, interpolation=cv.INTER_LINEAR, borderMode=cv.BORDER_CONSTANT)
+cv.imshow('Undistorted Image (Press any key to continue)', dst)
+cv.waitKey(0)
+cv.destroyAllWindows()
 
 with open(csv_path, 'a', newline='') as f:
     writer = csv.writer(f)

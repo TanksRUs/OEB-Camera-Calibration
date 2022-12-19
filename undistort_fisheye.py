@@ -60,10 +60,8 @@ for img_path in images: # assuming images are in the same order as the camera or
 
     img = cv.imread(img_path)
     h, w = img.shape[:2]
-    newcameramtx, roi = cv.getOptimalNewCameraMatrix(var_K, var_D, (w, h), 1, (w, h))
-    dst = cv.fisheye.undistortImage(img, var_K, var_D)
-    x, y, w, h = roi
-    dst = dst[y:y+h, x:x+w]
+    map1, map2 = cv.fisheye.initUndistortRectifyMap(var_K, var_D, np.eye(3), var_K, (w, h), cv.CV_16SC2)
+    dst = cv.remap(img, map1, map2, interpolation=cv.INTER_LINEAR, borderMode=cv.BORDER_CONSTANT)
 
     try:
         cv.imwrite(new_path, dst)
