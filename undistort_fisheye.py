@@ -15,7 +15,7 @@ var_Ds = []
 with open(csv_path, newline='') as csv_file:
     reader = csv.reader(csv_file)
     for i in range(0, NUM_CAMS):
-        for header in range(0, 2):  # skips header rows
+        for header in range(0, 4):  # skips header rows
             next(reader)
         var_K = []
         var_K.append([float(x) for x in next(reader)])

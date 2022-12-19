@@ -11,7 +11,7 @@ GRID_SIZE = 1 # in [mm], 1 for unknown/dimensionless (NOTE: literally does not a
 RESOLUTION_SCALE = 1 # to divide focal lengths/principal points by
 # -----------------------------------
 IMAGE_EXTS = ['jpg', 'jpeg', 'png'] # valid image extensions
-csv_path = filedialog.asksaveasfilename(title='Select or save calibration CSV:', initialfile='calibration.csv', filetypes=(('CSV', '*.csv'), ('All files', '*.*')))
+csv_path = filedialog.asksaveasfilename(title='Select or save calibration CSV:', initialfile='calibration_fisheye.csv', filetypes=(('CSV', '*.csv'), ('All files', '*.*')))
 
 img_path = filedialog.askdirectory(title='Select images folder:')
 if img_path == '':
@@ -85,7 +85,7 @@ cv.destroyAllWindows()
 with open(csv_path, 'a', newline='') as f:
     writer = csv.writer(f)
     f.write(img_path.rsplit('/',1)[1] + '\n') # name of dataset/calibration parameters
-    # f.write('RMS Re-projection Error:\n{}\n'.format(ret)) # no idea what ret represents for fisheye
+    f.write('RMS Re-projection Error:\n{}\n'.format(ret))
     f.write('Camera Matrix:\n')
     writer.writerows(var_K)
     f.write('Distortion Coefficients:\nk1,k2,k3,k4\n')
