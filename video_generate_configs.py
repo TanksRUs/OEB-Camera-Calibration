@@ -67,7 +67,7 @@ def generate_stitching_params(all_imgs): # pass in list of images
     cv.waitKey(0)
     cv.destroyAllWindows()
 
-    matcher = cv.detail_BestOf2NearestMatcher(try_cuda, match_conf)
+    matcher = cv.detail_BestOf2NearestMatcher(try_cuda, match_conf)  # TODO: replace matcher type here
     p = matcher.apply2(features)
     matcher.collectGarbage()
 
@@ -81,7 +81,7 @@ def generate_stitching_params(all_imgs): # pass in list of images
     images = img_subset
     full_img_sizes = full_img_sizes_subset
     num_images = len(images)
-    estimator = cv.detail_HomographyBasedEstimator()
+    estimator = cv.detail_HomographyBasedEstimator()  # TODO: replace estimator type here
     b, cameras = estimator.apply(features, p, None)
 
     for cam in cameras:
@@ -259,7 +259,7 @@ def save_configs(ret_val, output_folder):
     mask_file.release()
 
 
-def read_calibration(csv_path, num_cams):
+def read_calibration(csv_path, num_cams):  # NOTE: also works for reading in fisheye calibration CSVs
     mtxs = []
     dists = []
     with open(csv_path, newline='') as csv_file:
@@ -283,9 +283,6 @@ def read_calibration(csv_path, num_cams):
             except StopIteration:
                 pass
 
-    # ret_val = OrderedDict()
-    # ret_val['mtxs'] = mtxs
-    # ret_val['dists'] = dists
     return mtxs, dists
 
 
@@ -305,10 +302,26 @@ def undistort(all_imgs, mtxs, dists):
     return undistorted_imgs
 
 
+def undistort_fisheye(all_imgs, mtxs, dists):
+    undistorted_imgs = []
+    for i in range(0, len(all_imgs)):
+        img = all_imgs[i]
+        var_K = mtxs[i]
+        var_D = dists[i]
+        h, w = img.shape[:2]
+        map1, map2 = cv.fisheye.initUndistortRectifyMap(var_K, var_D, np.eye(3), var_K, (w, h), cv.CV_16SC2)
+        undistorted = cv.remap(img, map1, map2, interpolation=cv.INTER_LINEAR, borderMode=cv.BORDER_CONSTANT)
+        undistorted_imgs.append(undistorted)
+
+    return undistorted_imgs
+
+
 def main():
+    # -------------File I/O Stuff-------------
     save_path = filedialog.askdirectory(title='Choose output location:')
     csv_path = filedialog.askopenfilename(title='Select calibration CSV:', initialfile='calibration.csv', filetypes=(('CSV','*.csv'),('All files','*.*')))
     all_imgs_paths = filedialog.askopenfilenames(title='Select images to stitch:')
+    # ----------------------------------------
 
     all_imgs = []
     for path in all_imgs_paths:
@@ -317,6 +330,7 @@ def main():
     num_cams = len(all_imgs)
     mtxs, dists = read_calibration(csv_path, num_cams)
     all_imgs = undistort(all_imgs, mtxs, dists)
+    # all_imgs = undistort_fisheye(all_imgs, mtxs, dists)  # TODO: replace line above with this if using fisheye camera model
     stitching_params = generate_stitching_params(all_imgs)
     save_configs(stitching_params, save_path)
 

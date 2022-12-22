@@ -55,11 +55,11 @@ for i in range(0, num_views):
     if ret == True:
         objpoints.append(objp)
         imgpoints.append(corners)
-        # Draw and display the corners
         corners2 = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-        cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners2, ret)
-        cv.imshow('Corners Detected (Press any key to continue)', img)
-        cv.waitKey(0)
+        # Draw and display the corners  TODO: uncomment next 4 lines to show each checkerboard successfully detected
+        # cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners2, ret)
+        # cv.imshow('Corners Detected (Press any key to continue)', img)
+        # cv.waitKey(0)
 # cv.destroyAllWindows()
 
 ret, mtx, dist, rvecs, tvecs  = cv.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
@@ -86,4 +86,3 @@ with open(CSV_PATH, 'a', newline='') as f:
 print(ret)
 print(mtx)
 print(dist)
-# print(imgpoints)

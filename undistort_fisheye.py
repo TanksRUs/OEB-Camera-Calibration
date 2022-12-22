@@ -48,7 +48,6 @@ for extension in IMAGE_EXTS:
     if images: # if there are files with the specified extension
         break
 count = 0
-command = 'stitching_detailed.py'
 
 for img_path in images: # assuming images are in the same order as the camera order
     print(img_path)
@@ -68,12 +67,6 @@ for img_path in images: # assuming images are in the same order as the camera or
     except FileExistsError:
         print('File already exists: ' + img_name)
 
-    command += ' \"{}\"'.format(new_path)
     # cv.imshow('img', dst)
     # cv.waitKey(0)
     count += 1
-
-# command += ' --warp affine --matcher affine --estimator affine --ba affine --wave_correct no --output_folder \"{}/\"'.format(os.path.dirname(folder_path))
-# os.system(command)
-# parameters for stitching_detailed:
-# --warp affine --matcher affine --estimator affine --ba affine --wave_correct no --ba_refine_mask xxx_x --features sift --match_conf 0.65 --conf_thresh 0.5

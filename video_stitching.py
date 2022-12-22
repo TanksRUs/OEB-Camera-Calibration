@@ -58,7 +58,7 @@ def read_configs(cameraConfigs_path, masks_path):
 
 # modify stitching parameters here
 def first_stitch(all_imgs, camera_configs):
-    # ----- stitching parameters -----
+    # ----- stitching parameters ----- (copied from video_generate_configs)
     ba = cv.detail_BundleAdjusterReproj()  # --ba reproj
     ba_refine_mask = 'xxx_x'  # --ba_refine_mask xxx_x
     warp_type = 'plane'  # --warp plane
@@ -134,9 +134,7 @@ def first_stitch(all_imgs, camera_configs):
         K = cameras[idx].K().astype(np.float32)
         R = cameras[idx].R.astype(np.float32)
         corner, image_warped = warper.warp(img, K, R, cv.INTER_LINEAR,
-                                           cv.BORDER_REFLECT)  # TODO: seems like issue here?
-        # OpenCV(4.6.0) Error: Unknown error code -220 (OpenCL error CL_OUT_OF_RESOURCES (-5) during call: clEnqueueMapBuffer(handle=000001B9D888D3C0, sz=12) => 0000000000000000) in cv::ocl::OpenCLAllocator::deallocate_, file D:\a\opencv-python\opencv-python\opencv\modules\core\src\ocl.cpp, line 5761
-        # OpenCL error CL_OUT_OF_RESOURCES (-5) during call: clEnqueueNDRangeKernel('buildWarpPlaneMaps', dims=2, globalsize=1024x664x1, localsize=NULL) sync=true
+                                           cv.BORDER_REFLECT)
         image_warped_s = image_warped.astype(np.int16)
         mask_warped = cv.UMat(masks_warped[idx])
 
@@ -158,7 +156,6 @@ def first_stitch(all_imgs, camera_configs):
     result = None
     result_mask = None
     result, result_mask = blender.blend(result, result_mask)
-    # cv2.error: OpenCV(4.6.0) D:\a\opencv-python\opencv-python\opencv\modules\core\src\ocl.cpp:3977: error: (-220:Unknown error code -220) OpenCL error Unknown OpenCL error (-9999) during call: clSetEventCallback(asyncEvent, CL_COMPLETE, oclCleanupCallback, this) in function 'cv::ocl::Kernel::Impl::run'
     zoom_x = 600.0 / result.shape[1]
     dst = cv.normalize(src=result, dst=None, alpha=255., norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
     dst = cv.resize(dst, dsize=None, fx=zoom_x, fy=zoom_x)
@@ -217,7 +214,7 @@ def stitch_frame(all_imgs, camera_configs, stitch_configs):
     return dst
 
 
-def do_everything(all_vids, camera_configs, output_path, fps, vid_size, mtxs, dists):
+def do_everything(all_vids, camera_configs, output_path, fps, mtxs, dists):
     caps = []
     stitched_frames = []
 
@@ -241,11 +238,12 @@ def do_everything(all_vids, camera_configs, output_path, fps, vid_size, mtxs, di
             break
 
         frames = undistort(frames, mtxs, dists)
+        # frames = undistort_fisheye(frames, mtxs, dists)  # TODO: replace line above with this if using fisheye camera model
 
         if stitch_configs is None:
             stitched, stitch_configs = first_stitch(frames, camera_configs)
         else:
-            stitched = stitch_frame(frames, camera_configs, stitch_configs)  # TODO: figure out why broken
+            stitched = stitch_frame(frames, camera_configs, stitch_configs)
 
         stitched_frames.append(stitched)
         frame_count += 1
@@ -264,7 +262,7 @@ def do_everything(all_vids, camera_configs, output_path, fps, vid_size, mtxs, di
     # return stitched_frames
 
 
-def read_calibration(csv_path, num_cams):
+def read_calibration(csv_path, num_cams):  # NOTE: also works for reading in fisheye calibration CSVs
     mtxs = []
     dists = []
     with open(csv_path, newline='') as csv_file:
@@ -307,7 +305,22 @@ def undistort(all_imgs, mtxs, dists):
     return undistorted_imgs
 
 
+def undistort_fisheye(all_imgs, mtxs, dists):
+    undistorted_imgs = []
+    for i in range(0, len(all_imgs)):
+        img = all_imgs[i]
+        var_K = mtxs[i]
+        var_D = dists[i]
+        h, w = img.shape[:2]
+        map1, map2 = cv.fisheye.initUndistortRectifyMap(var_K, var_D, np.eye(3), var_K, (w, h), cv.CV_16SC2)
+        undistorted = cv.remap(img, map1, map2, interpolation=cv.INTER_LINEAR, borderMode=cv.BORDER_CONSTANT)
+        undistorted_imgs.append(undistorted)
+
+    return undistorted_imgs
+
+
 def main():
+    # -------------File I/O Stuff-------------
     csv_path = filedialog.askopenfilename(title='Select calibration CSV:', initialfile='calibration.csv',
                                           filetypes=(('CSV', '*.csv'), ('All files', '*.*')))
     cameraConfigs_path = filedialog.askopenfilename(title='Select camera configs:', initialfile='cameraConfigs.cfg',
@@ -317,15 +330,15 @@ def main():
     all_vids = filedialog.askopenfilenames(title='Select videos to stitch:')
     output_vid = filedialog.asksaveasfilename(title='Save stitched video:', initialfile='stitched.avi',
                                               filetypes=(('avi', '*.avi'), ('All files', '*.*')))
+    # ----------------------------------------
 
     num_cams = len(all_vids)
     mtxs, dists = read_calibration(csv_path, num_cams)
     camera_configs = read_configs(cameraConfigs_path, masks_path)
 
-    fps = 30
-    vid_size = (720, 1280)
+    fps = 30  # NOTE: change video framerate here
 
-    do_everything(all_vids, camera_configs, output_vid, fps, vid_size, mtxs, dists)
+    do_everything(all_vids, camera_configs, output_vid, fps, mtxs, dists)
 
 
 if __name__ == '__main__':

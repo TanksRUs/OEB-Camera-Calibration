@@ -46,7 +46,7 @@ for fname in images:
         objpoints.append(objp)
         cv.cornerSubPix(gray, corners, (3, 3), (-1, -1), criteria)
         imgpoints.append(corners)
-        # Draw and display the corners
+        # Draw and display the corners TODO: uncomment next 4 lines to show each checkerboard successfully detected
 #         cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners, ret)
 #         cv.imshow('Chessboard Corners (Press any key to continue)', img)
 #         cv.waitKey(0)

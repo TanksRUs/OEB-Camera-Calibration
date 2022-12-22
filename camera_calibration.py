@@ -45,7 +45,7 @@ for fname in images:
         objpoints.append(objp)
         corners = cv.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         imgpoints.append(corners)
-        # Draw and display the corners
+        # Draw and display the corners TODO: uncomment next 4 lines to show each checkerboard successfully detected
         # cv.drawChessboardCorners(img, (COLUMNS,ROWS), corners, ret)
         # cv.imshow('Corners Detected (Press any key to continue)', img)
         # cv.waitKey(0)
@@ -77,4 +77,3 @@ with open(csv_path, 'a', newline='') as f:
 print(ret)
 print(mtx)
 print(dist)
-# print(imgpoints)
