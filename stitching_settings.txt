@@ -1,0 +1,19 @@
+NOTE: based on newspaper example in https://docs.opencv.org/4.x/d8/d19/tutorial_stitcher.html
+#====Affine (Scanner) Settings====
+--warp affine
+--matcher affine
+--estimator affine
+--ba affine
+--wave_correct no
+--ba_refine_mask xxx_x
+--features sift
+--match_conf 0.65
+--conf_thresh 0.5
+
+#====Planar Settings====
+--warp plane
+--ba reproj
+--ba_refine_mask xxx_x
+--features sift
+--match_conf 0.65
+--conf_thresh 0.5

@@ -49,13 +49,16 @@ for extension in IMAGE_EXTS:
         break
 count = 0
 
-for img_path in images: # assuming images are in the same order as the camera order
+# for img_path in images: # assuming images are in the same order as the camera order
+while True:
+    img_path = images[count]
     print(img_path)
     camera = count % NUM_CAMS
     mtx = mtxs[camera]
     dist = dists[camera]
+    #dist = np.array([[1e-01,  -1e-01, 4.10670328e-05, -4.83350786e-04, -0.0e-1]])  # TODO: add breakpoint here and modify dist values each loop to see results :)
     img_name = os.path.splitext(os.path.basename(img_path))[0]
-    new_path = '{}/{}_undist.png'.format(output_folder, img_name)
+    new_path = '{}/{}_undist{},{},{}.png'.format(output_folder, img_name, dist[0][0], dist[0][1], dist[0][4])
 
     img = cv.imread(img_path)
     h, w = img.shape[:2]
@@ -69,6 +72,6 @@ for img_path in images: # assuming images are in the same order as the camera or
     except FileExistsError:
         print('File already exists: ' + img_name)
 
-    # cv.imshow('img', dst)
-    # cv.waitKey(0)
-    count += 1
+    cv.imshow('img', dst)
+    cv.waitKey(0)
+    # count += 1
